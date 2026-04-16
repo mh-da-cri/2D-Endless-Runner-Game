@@ -1,4 +1,4 @@
-# 🗡️ Knight Runner - Endless Fantasy
+#  Knight Runner - Endless Fantasy
 
 A 2D Endless Runner game built with **Python** and **Pygame**.
 
@@ -71,7 +71,7 @@ python main.py
 └── requirements.txt            # Dependencies
 ```
 
-## 🛠️ Phát triển tiếp
+##  Phát triển tiếp
 
 - [ ] Thay placeholder bằng pixel art sprites
 - [ ] Thêm sprite animation (chạy, nhảy, cúi)

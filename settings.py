@@ -30,9 +30,9 @@ JUMP_FORCE = -15              # Lực nhảy lần 1 (âm = đi lên)
 DOUBLE_JUMP_FORCE = -13       # Lực nhảy lần 2 (yếu hơn một chút)
 MAX_JUMPS = 2                 # Số lần nhảy tối đa (double jump)
 
-DASH_SPEED = 12               # Tốc độ dash (pixels/frame)
-DASH_DURATION = 12            # Thời gian dash (frames) ≈ 0.2 giây
-DASH_COOLDOWN = 90            # Cooldown giữa các lần dash (frames) ≈ 1.5 giây
+DASH_SPEED = 1.5              # Hệ số tăng tốc độ khi lướt
+DASH_DURATION = 60            # Thời gian lướt (frames)
+DASH_COOLDOWN = 60            # Thời gian chờ (cooldown) để lướt lần tiếp theo (frames)
 
 DUCK_SPEED_BONUS = 1          # Bonus tốc độ khi cúi (player hơi trượt nhanh hơn)
 

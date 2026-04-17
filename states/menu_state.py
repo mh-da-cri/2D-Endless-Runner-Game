@@ -7,6 +7,7 @@ import pygame
 import sys
 import settings
 from utils.asset_loader import load_font
+from utils.score_manager import load_highscore
 
 
 class MenuState:
@@ -53,6 +54,9 @@ class MenuState:
         self.title_y_offset = 0
         self.title_direction = 1
         self.frame_count = 0
+        
+        # Highscore
+        self.highscore = load_highscore()
     
     def handle_events(self, events):
         """
@@ -124,6 +128,13 @@ class MenuState:
         subtitle_rect.centerx = settings.SCREEN_WIDTH // 2
         subtitle_rect.top = title_rect.bottom + 15
         self.screen.blit(subtitle_text, subtitle_rect)
+        
+        # === Highscore (Nếu có) ===
+        if self.highscore > 0:
+            hs_font = load_font(32)
+            hs_text = hs_font.render(f"★ Best Score: {int(self.highscore)} ★", True, settings.COLOR_SCORE)
+            hs_rect = hs_text.get_rect(center=(settings.SCREEN_WIDTH // 2, self.play_button.top - 50))
+            self.screen.blit(hs_text, hs_rect)
         
         # === Play Button ===
         self._draw_button(

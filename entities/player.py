@@ -36,6 +36,17 @@ class Player:
         
         # Hitbox rect (cập nhật mỗi frame)
         self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        
+        # Audio
+        self.jump_sound = None
+        self.dash_sound = None
+        try:
+            self.jump_sound = pygame.mixer.Sound("assets/audio/JumpSoundEffect.mp3")
+            self.jump_sound.set_volume(0.5)
+            self.dash_sound = pygame.mixer.Sound("assets/audio/DashSoundEffect.mp3")
+            self.dash_sound.set_volume(0.5)
+        except Exception as e:
+            print(f"Warning: Không thể load audio cho Player ({e})")
     
     def jump(self):
         """
@@ -55,18 +66,27 @@ class Player:
             
             self.jump_count += 1
             self.is_on_ground = False
+            
+            if self.jump_sound:
+                # Dừng âm cũ nếu đang phát để tiếng giòn hơn khi double jump
+                self.jump_sound.stop()
+                self.jump_sound.play()
     
     def duck(self, is_pressing):
         """
         Cúi xuống để né chướng ngại vật bay.
-        Chỉ có thể cúi khi đang trên mặt đất.
+        - Nếu đang trên mặt đất: Đổi hitbox lùn xuống.
+        - Nếu đang trên không: Lao nhanh xuống đất (Fast fall).
         
         Args:
-            is_pressing: True nếu đang giữ phím DOWN
+            is_pressing: True nếu đang giữ phím DOWN hoặc S
         """
-        if is_pressing and self.is_on_ground and not self.is_dashing:
-            if not self.is_ducking:
-                # Chuyển sang trạng thái cúi
+        if is_pressing and not self.is_dashing:
+            if not self.is_on_ground:
+                # Đang ở trên không -> Fast fall (rơi siêu tốc)
+                self.vel_y += 5  # Tăng trọng lực ảo để rớt xuống ngay lập tức
+            elif not self.is_ducking:
+                # Cúi
                 self.is_ducking = True
                 # Điều chỉnh vị trí và kích thước hitbox
                 old_height = self.height
@@ -87,9 +107,13 @@ class Player:
         """
         if self.can_dash and not self.is_ducking and not self.is_dashing:
             self.is_dashing = True
-            self.dash_timer = settings.DASH_DURATION
             self.can_dash = False
+            self.dash_timer = settings.DASH_DURATION
             self.dash_cooldown_timer = settings.DASH_COOLDOWN
+            
+            if self.dash_sound:
+                self.dash_sound.stop()
+                self.dash_sound.play()
     
     def apply_gravity(self):
         """Áp dụng trọng lực mỗi frame."""

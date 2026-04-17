@@ -25,8 +25,9 @@ class Obstacle:
         """
         # Random loại nếu không chỉ định
         if obstacle_type is None:
-            # 70% ground, 30% flying
-            self.type = self.TYPE_GROUND if random.random() < 0.7 else self.TYPE_FLYING
+            # Điều chỉnh cân bằng: 40% quái mặt đất, 60% quái bay 
+            # (Đảm bảo mỗi loại bay Tím, Xanh, Đỏ chiếm 20% tổng số quái)
+            self.type = self.TYPE_GROUND if random.random() < 0.4 else self.TYPE_FLYING
         else:
             self.type = obstacle_type
         
@@ -59,15 +60,28 @@ class Obstacle:
         self.color = settings.COLOR_OBSTACLE_GROUND
     
     def _init_flying_obstacle(self):
-        """Khởi tạo quái bay."""
+        """Khởi tạo quái bay với 3 mức độ cao khác nhau (giữ nguyên kích thước nhỏ)."""
         self.width = settings.FLYING_OBSTACLE_WIDTH
-        self.height = settings.FLYING_OBSTACLE_HEIGHT
+        self.height = settings.FLYING_OBSTACLE_HEIGHT  # Cố định kích thước
+        
+        # Chọn ngẫu nhiên loại quái bay một cách cân bằng (tỷ lệ bằng nhau 1:1:1)
+        subtype = random.choice(["jump", "duck", "double_jump"])
+        
+        if subtype == "jump":
+            # Quái bay khinh công sát đất -> Cúi hay đứng đều trúng. Bắt buộc nhảy.
+            self.y = 560
+            self.color = settings.COLOR_OBSTACLE_FLYING  # Tím tối
+        elif subtype == "duck":
+            # Quái bay ngang đầu (Bottom=550). Đứng trúng đầu. Bắt buộc rũ đầu cúi qua.
+            self.y = 510
+            self.color = settings.COLOR_OBSTACLE_FLYING  # Tím tối
+        else: # "double_jump"
+            # Quái bay rất cao (Đỉnh 450, Đáy 490). Nếu người chơi đã phóng lên không trung bằng Nhảy 1 lần (đỉnh=480) sẽ bị va phải. 
+            # Bắt buộc phải Double Jump (đỉnh=375) để vọt qua. Dĩ nhiên nếu tinh ý có thể chạy bộ/cúi thẳng dưới háng quái mà không cần nhảy.
+            self.y = 450
+            self.color = settings.COLOR_OBSTACLE_FLYING  # Tím tối
+            
         self.x = settings.SCREEN_WIDTH + random.randint(0, 100)
-        self.y = random.randint(
-            settings.FLYING_OBSTACLE_Y_MIN,
-            settings.FLYING_OBSTACLE_Y_MAX
-        )
-        self.color = settings.COLOR_OBSTACLE_FLYING
     
     def update(self, game_speed=None):
         """

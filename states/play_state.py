@@ -12,7 +12,9 @@ from entities.obstacle import Obstacle
 from entities.ground import Ground
 from ui.background import Background
 from ui.hud import HUD
+from ui.hud import HUD
 from utils.score_manager import load_highscore
+from utils.asset_loader import load_font
 
 
 class PlayState:
@@ -62,6 +64,19 @@ class PlayState:
                 sys.exit()
             
             if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_p:
+                    self.is_paused = not self.is_paused
+                    
+                if self.is_paused:
+                    if event.key == pygame.K_SPACE:
+                        self.is_paused = False  # Resume
+                    elif event.key == pygame.K_ESCAPE:
+                        from states.menu_state import MenuState
+                        self.game_manager.change_state(MenuState(self.game_manager))
+                        return
+                    continue  # Bỏ qua các phím khác khi đang pause
+                
+                # Input khi đang chơi bình thường
                 if event.key == pygame.K_SPACE:
                     self.player.jump()
                 
@@ -69,14 +84,14 @@ class PlayState:
                     self.player.dash()
                 
                 if event.key == pygame.K_ESCAPE:
-                    # Về menu
-                    from states.menu_state import MenuState
-                    self.game_manager.change_state(MenuState(self.game_manager))
-                    return
+                    # Bật menu pause khi bấm ESC
+                    self.is_paused = True
         
-        # Kiểm tra phím đang giữ (cho duck - cần giữ liên tục)
-        keys = pygame.key.get_pressed()
-        self.player.duck(keys[pygame.K_DOWN])
+        if not self.is_paused:
+            # Kiểm tra phím đang giữ (cho duck - cần giữ liên tục)
+            keys = pygame.key.get_pressed()
+            is_duck_pressed = keys[pygame.K_DOWN] or keys[pygame.K_s]
+            self.player.duck(is_duck_pressed)
     
     def update(self):
         """Cập nhật logic game mỗi frame."""
@@ -90,20 +105,27 @@ class PlayState:
         # --- Cập nhật player ---
         self.player.update()
         
+        # Tính toán tốc độ thực tế (tăng tốc theo hệ số DASH_SPEED nếu đang lướt)
+        active_speed = self.game_speed * settings.DASH_SPEED if self.player.is_dashing else self.game_speed
+        
         # --- Cập nhật obstacles ---
         for obstacle in self.obstacles:
-            obstacle.update(self.game_speed)
+            obstacle.update(active_speed)
         
         # Xóa obstacles đã ra khỏi màn hình
         self.obstacles = [obs for obs in self.obstacles if not obs.is_off_screen()]
         
         # --- Spawn obstacle mới ---
         self.spawn_timer += 1
+        # Nếu đang lướt, timer đếm nhanh hơn thuận theo hệ số DASH_SPEED để duy trì mật độ quái
+        if self.player.is_dashing:
+            self.spawn_timer += (settings.DASH_SPEED - 1.0)
+            
         if self.spawn_timer >= self.next_spawn_delay:
             self._spawn_obstacle()
             self.spawn_timer = 0
             # Random delay tiếp theo (giảm dần khi tốc độ tăng)
-            speed_factor = self.game_speed / settings.INITIAL_GAME_SPEED
+            speed_factor = active_speed / settings.INITIAL_GAME_SPEED
             min_delay = max(30, int(settings.MIN_SPAWN_DELAY / speed_factor))
             max_delay = max(60, int(settings.MAX_SPAWN_DELAY / speed_factor))
             self.next_spawn_delay = random.randint(min_delay, max_delay)
@@ -121,11 +143,13 @@ class PlayState:
                 return
         
         # --- Cập nhật score ---
-        self.score += settings.SCORE_INCREMENT * (self.game_speed / settings.INITIAL_GAME_SPEED)
+        self.score += settings.SCORE_INCREMENT * (active_speed / settings.INITIAL_GAME_SPEED)
+        if self.score > self.highscore:
+            self.highscore = self.score
         
         # --- Cập nhật background & ground ---
-        self.background.update(self.game_speed)
-        self.ground.update(self.game_speed)
+        self.background.update(active_speed)
+        self.ground.update(active_speed)
     
     def draw(self):
         """Vẽ mọi thứ lên màn hình (theo thứ tự lớp)."""
@@ -144,6 +168,28 @@ class PlayState:
         
         # 5. HUD (lớp trên cùng)
         self.hud.draw(self.screen, self.score, self.highscore, self.game_speed)
+        
+        # 6. Pause UI
+        if self.is_paused:
+            # Lớp sương mù đen bóng làm mờ game
+            overlay = pygame.Surface((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 160))
+            self.screen.blit(overlay, (0, 0))
+            
+            # Khởi tạo font để vẽ chữ
+            font_title = load_font(72)
+            font_hint  = load_font(28)
+            
+            # Tiêu đề
+            title_text = font_title.render("PAUSED", True, settings.COLOR_TITLE)
+            title_rect = title_text.get_rect(center=(settings.SCREEN_WIDTH // 2, settings.SCREEN_HEIGHT // 2 - 40))
+            
+            # Hướng dẫn
+            hint_text = font_hint.render("SPACE / P to Resume  |  ESC to Menu", True, settings.COLOR_TEXT)
+            hint_rect = hint_text.get_rect(center=(settings.SCREEN_WIDTH // 2, settings.SCREEN_HEIGHT // 2 + 30))
+            
+            self.screen.blit(title_text, title_rect)
+            self.screen.blit(hint_text, hint_rect)
     
     def _spawn_obstacle(self):
         """Tạo obstacle mới."""
@@ -161,6 +207,11 @@ class PlayState:
     def _game_over(self):
         """Xử lý khi game over."""
         from states.gameover_state import GameOverState
+        
+        # Ép vẽ frame hiện tại (frame xảy ra va chạm) trước khi đóng màng hình
+        # Điều này giúp lỗi hiển thị "chưa thay đổi dáng đứng" biến mất
+        self.draw()
+        
         self.game_manager.change_state(
             GameOverState(self.game_manager, self.score, self.highscore)
         )

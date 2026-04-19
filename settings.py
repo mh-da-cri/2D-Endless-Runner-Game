@@ -55,6 +55,15 @@ MIN_SPAWN_DELAY = 60          # Delay tối thiểu giữa các obstacle (frames
 MAX_SPAWN_DELAY = 150         # Delay tối đa giữa các obstacle (frames)
 
 # ============================================================
+# POWER-UPS / VẬT PHẨM TĂNG SỨC MẠNH
+# ============================================================
+POWERUP_SIZE = 30
+POWERUP_DURATION = 300        # Hiệu lực 5 giây (ở 60 FPS)
+
+MIN_POWERUP_SPAWN_DELAY = 600   # Khoảng 10s
+MAX_POWERUP_SPAWN_DELAY = 1200  # Khoảng 20s
+
+# ============================================================
 # GAME SPEED / TỐC ĐỘ GAME
 # ============================================================
 INITIAL_GAME_SPEED = 6        # Tốc độ cuộn ban đầu
@@ -97,6 +106,9 @@ COLOR_GAMEOVER = (200, 50, 50)        # Game Over - đỏ
 COLOR_HUD_BG = (0, 0, 0, 120)        # Nền HUD bán trong suốt
 COLOR_WHITE = (255, 255, 255)
 COLOR_BLACK = (0, 0, 0)
+COLOR_POWERUP_SHIELD = (100, 200, 255) # Xanh dương nhạt (bất tử)
+COLOR_POWERUP_SCORE = (255, 215, 0)    # Vàng gold (nhân đôi điểm)
+COLOR_POWERUP_SLOW = (100, 255, 100)   # Xanh lá (giảm tốc)
 
 # ============================================================
 # UI / GIAO DIỆN

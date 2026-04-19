@@ -10,8 +10,8 @@ import settings
 from entities.player import Player
 from entities.obstacle import Obstacle
 from entities.ground import Ground
+from entities.powerup import PowerUp
 from ui.background import Background
-from ui.hud import HUD
 from ui.hud import HUD
 from utils.score_manager import load_highscore
 from utils.asset_loader import load_font
@@ -41,6 +41,13 @@ class PlayState:
         self.spawn_timer = 0
         self.next_spawn_delay = random.randint(
             settings.MIN_SPAWN_DELAY, settings.MAX_SPAWN_DELAY
+        )
+        
+        # Power-ups
+        self.powerups = []
+        self.powerup_spawn_timer = 0
+        self.next_powerup_spawn_delay = random.randint(
+            settings.MIN_POWERUP_SPAWN_DELAY, settings.MAX_POWERUP_SPAWN_DELAY
         )
         
         # Game state
@@ -108,12 +115,22 @@ class PlayState:
         # Tính toán tốc độ thực tế (tăng tốc theo hệ số DASH_SPEED nếu đang lướt)
         active_speed = self.game_speed * settings.DASH_SPEED if self.player.is_dashing else self.game_speed
         
+        # Áp dụng hiêu ứng slow down từ powerup
+        if self.player.has_powerup('slow_down'):
+            active_speed *= 0.7
+        
         # --- Cập nhật obstacles ---
         for obstacle in self.obstacles:
             obstacle.update(active_speed)
         
         # Xóa obstacles đã ra khỏi màn hình
         self.obstacles = [obs for obs in self.obstacles if not obs.is_off_screen()]
+        
+        # --- Cập nhật powerups ---
+        for powerup in self.powerups:
+            powerup.update(active_speed)
+            
+        self.powerups = [p for p in self.powerups if not p.is_off_screen()]
         
         # --- Spawn obstacle mới ---
         self.spawn_timer += 1
@@ -129,13 +146,30 @@ class PlayState:
             min_delay = max(30, int(settings.MIN_SPAWN_DELAY / speed_factor))
             max_delay = max(60, int(settings.MAX_SPAWN_DELAY / speed_factor))
             self.next_spawn_delay = random.randint(min_delay, max_delay)
+            
+        # --- Spawn powerups ---
+        self.powerup_spawn_timer += 1
+        if self.powerup_spawn_timer >= self.next_powerup_spawn_delay:
+            self._spawn_powerup()
+            self.powerup_spawn_timer = 0
+            self.next_powerup_spawn_delay = random.randint(
+                settings.MIN_POWERUP_SPAWN_DELAY, settings.MAX_POWERUP_SPAWN_DELAY
+            )
         
         # --- Collision Detection ---
         player_rect = self.player.get_rect()
+        
+        # Va chạm với powerups
+        for powerup in self.powerups[:]:
+            if player_rect.colliderect(powerup.get_rect()):
+                self.player.activate_powerup(powerup.type)
+                self.powerups.remove(powerup)
+                
+        # Va chạm với chướng ngại vật
         for obstacle in self.obstacles:
             if player_rect.colliderect(obstacle.get_rect()):
-                # Nếu đang dash → bất tử (dash xuyên qua)
-                if self.player.is_dashing:
+                # Nếu đang dash hoặc có khiên → bất tử (dash xuyên qua)
+                if self.player.is_dashing or self.player.has_powerup('shield'):
                     continue
                 
                 # GAME OVER
@@ -143,7 +177,8 @@ class PlayState:
                 return
         
         # --- Cập nhật score ---
-        self.score += settings.SCORE_INCREMENT * (active_speed / settings.INITIAL_GAME_SPEED)
+        score_multiplier = 2 if self.player.has_powerup('double_score') else 1
+        self.score += settings.SCORE_INCREMENT * (active_speed / settings.INITIAL_GAME_SPEED) * score_multiplier
         if self.score > self.highscore:
             self.highscore = self.score
         
@@ -159,9 +194,11 @@ class PlayState:
         # 2. Ground
         self.ground.draw(self.screen)
         
-        # 3. Obstacles
+        # 3. Obstacles và Powerups
         for obstacle in self.obstacles:
             obstacle.draw(self.screen)
+        for powerup in self.powerups:
+            powerup.draw(self.screen)
         
         # 4. Player
         self.player.draw(self.screen)
@@ -209,9 +246,20 @@ class PlayState:
         from states.gameover_state import GameOverState
         
         # Ép vẽ frame hiện tại (frame xảy ra va chạm) trước khi đóng màng hình
-        # Điều này giúp lỗi hiển thị "chưa thay đổi dáng đứng" biến mất
         self.draw()
         
         self.game_manager.change_state(
             GameOverState(self.game_manager, self.score, self.highscore)
         )
+        
+    def _spawn_powerup(self):
+        """Tạo powerup mới."""
+        from entities.powerup import PowerUp
+        new_powerup = PowerUp(game_speed=self.game_speed)
+        
+        # Tránh spawn đè lên obstacle
+        for obs in self.obstacles:
+            if abs(new_powerup.x - obs.x) < 50:
+                new_powerup.x += 100
+                
+        self.powerups.append(new_powerup)

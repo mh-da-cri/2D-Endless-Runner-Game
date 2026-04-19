@@ -34,6 +34,10 @@ class Player:
         self.dash_cooldown_timer = 0      # Đếm ngược cooldown
         self.can_dash = True
         
+        # Power-ups
+        # Khóa là loại powerup, giá trị là thời gian còn lại (frames)
+        self.active_powerups = {}
+        
         # Hitbox rect (cập nhật mỗi frame)
         self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
         
@@ -148,8 +152,26 @@ class Player:
             if self.dash_cooldown_timer <= 0:
                 self.can_dash = True
         
+        # Cập nhật trạng thái power-ups
+        to_remove = []
+        for p_type, timer in self.active_powerups.items():
+            self.active_powerups[p_type] -= 1
+            if self.active_powerups[p_type] <= 0:
+                to_remove.append(p_type)
+        
+        for p_type in to_remove:
+            del self.active_powerups[p_type]
+            
         # Cập nhật hitbox
         self.rect.update(self.x, self.y, self.width, self.height)
+        
+    def activate_powerup(self, p_type):
+        """Kích hoạt một power-up."""
+        self.active_powerups[p_type] = settings.POWERUP_DURATION
+        
+    def has_powerup(self, p_type):
+        """Kiểm tra xem power-up có đang kích hoạt không."""
+        return self.active_powerups.get(p_type, 0) > 0
     
     def draw(self, screen):
         """
@@ -165,6 +187,12 @@ class Player:
         
         # Thân knight (hình chữ nhật chính)
         body_color = settings.COLOR_PLAYER
+        if self.has_powerup('shield'):
+            body_color = settings.COLOR_POWERUP_SHIELD
+            # Vẽ aura bảo vệ
+            aura_rect = self.rect.inflate(10, 10)
+            pygame.draw.rect(screen, settings.COLOR_POWERUP_SHIELD, aura_rect, 2, border_radius=6)
+        
         pygame.draw.rect(screen, body_color, self.rect, border_radius=4)
         
         # Phần mũ giáp (visor) - phần trên
@@ -239,4 +267,5 @@ class Player:
         self.dash_timer = 0
         self.dash_cooldown_timer = 0
         self.can_dash = True
+        self.active_powerups.clear()
         self.rect.update(self.x, self.y, self.width, self.height)

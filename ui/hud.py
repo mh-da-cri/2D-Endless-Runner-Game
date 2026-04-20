@@ -76,28 +76,20 @@ class HUD:
             "SPACE: Jump / Double Jump",
             "DOWN: Duck",
             "SHIFT: Dash",
-            "1: Skill",
+            "P / ESC: PAUSE",
         ]
-        # Thêm hướng dẫn cho đồng hành
-        if companions:
-            for i, comp in enumerate(companions):
-                key_num = comp.companion_index + 2
-                skill_names = {
-                    settings.CHARACTER_KNIGHT: "Shield",
-                    settings.CHARACTER_SORCERER: "Fireball",
-                    settings.CHARACTER_PRIEST: "Heal",
-                }
-                name = skill_names.get(comp.character_type, "Skill")
-                controls.append(f"{key_num}: Ally {name}")
         
+        # Điều chỉnh để vẽ từ GROUND_Y - delta để tránh chạm đáy màn hình khi có nhiều dòng
+        start_y = settings.GROUND_Y - 10
         for i, text in enumerate(controls):
             ctrl_text = self.small_font.render(text, True, (*settings.COLOR_TEXT[:3],))
             ctrl_surface = pygame.Surface(
                 (ctrl_text.get_width() + 8, ctrl_text.get_height() + 4), pygame.SRCALPHA
             )
             ctrl_surface.fill((0, 0, 0, 60))
-            screen.blit(ctrl_surface, (8, settings.GROUND_Y + 10 + i * 25))
-            screen.blit(ctrl_text, (12, settings.GROUND_Y + 12 + i * 25))
+            draw_y = start_y + i * 25
+            screen.blit(ctrl_surface, (8, draw_y))
+            screen.blit(ctrl_text, (12, draw_y + 2))
     
     def _draw_hp_bar(self, screen, player):
         """Vẽ thanh HP dạng trái tim."""
@@ -156,7 +148,7 @@ class HUD:
     
     def _draw_skill_indicator(self, screen, player, key_label, y_pos):
         """Vẽ chỉ báo cooldown skill nhân vật chính."""
-        skill_x = 20
+        skill_x = 15  # Căn lề trái bằng lề thanh máu (tọa độ nền)
         skill_y = y_pos
         indicator_width = 180
         indicator_height = 40
@@ -205,12 +197,12 @@ class HUD:
                 bar_rect = pygame.Rect(skill_x + 5, skill_y + indicator_height - 6, bar_width, 3)
                 pygame.draw.rect(screen, settings.COLOR_SKILL_READY, bar_rect)
         
-        # Vẽ text
+        # Vẽ text (điều chỉnh lề trong +5px từ skill_x ban đầu 15)
         key_text = self.skill_font.render(key_label, True, (150, 140, 130))
-        screen.blit(key_text, (skill_x + 6, skill_y + 6))
+        screen.blit(key_text, (skill_x + 8, skill_y + 6))
         
         name_text = self.skill_font.render(skill_name, True, name_color)
-        screen.blit(name_text, (skill_x + 35, skill_y + 6))
+        screen.blit(name_text, (skill_x + 37, skill_y + 6))
         
         status = self.skill_font.render(status_text, True, status_color)
         status_rect = status.get_rect()
@@ -220,7 +212,7 @@ class HUD:
     
     def _draw_companion_skill(self, screen, companion, key_label, y_pos):
         """Vẽ chỉ báo skill cooldown cho đồng hành."""
-        skill_x = 20
+        skill_x = 15  # Căn lề trái bằng lề thanh máu
         skill_y = y_pos
         indicator_width = 180
         indicator_height = 36
@@ -269,12 +261,12 @@ class HUD:
                 bar_rect = pygame.Rect(skill_x + 5, skill_y + indicator_height - 5, bar_w, 3)
                 pygame.draw.rect(screen, settings.COLOR_SKILL_READY, bar_rect)
         
-        # Vẽ text
+        # Vẽ text (điều chỉnh lề trong +5px từ skill_x ban đầu 15)
         key_text = self.skill_font.render(key_label, True, (150, 140, 130))
-        screen.blit(key_text, (skill_x + 6, skill_y + 5))
+        screen.blit(key_text, (skill_x + 8, skill_y + 5))
         
         name_text = self.skill_font.render(skill_name, True, name_color)
-        screen.blit(name_text, (skill_x + 35, skill_y + 5))
+        screen.blit(name_text, (skill_x + 37, skill_y + 5))
         
         status = self.skill_font.render(status_text, True, status_color)
         sr = status.get_rect()

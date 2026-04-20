@@ -93,6 +93,51 @@ class CharacterSelectState:
         self.frame_count = 0
         self.selected_card = -1  # Card đang được chọn (animation)
         self.select_timer = 0
+        
+        # Load sprite previews cho Knight và Sorcerer
+        self._load_preview_sprites()
+    
+    def _load_preview_sprites(self):
+        """Load sprite frame idle dùng cho preview trong card chọn nhân vật."""
+        self.knight_preview = None
+        self.sorcerer_preview = None
+        target_h = 115  # Chiều cao hiển thị trong card
+        
+        # Knight - idle frame (cột 0, hàng 0)
+        try:
+            from utils.spritesheet import SpriteSheet
+            from utils.asset_loader import load_image
+            w, h = settings.SPRITE_FRAME_WIDTH, settings.SPRITE_FRAME_HEIGHT
+            knight_img = load_image(settings.SPRITE_IMAGE, convert_alpha=True)
+            knight_sheet = SpriteSheet(knight_img)
+            self.knight_preview = knight_sheet.get_image(0, 0, w, h, target_h / h)
+        except Exception:
+            pass
+        
+        # Sorcerer - idle frame tại pixel (47, 14), 76x76, inset=2
+        try:
+            from utils.spritesheet import SpriteSheet
+            from utils.asset_loader import load_image
+            sorc_img = load_image(settings.SORCERER_SPRITE_IMAGE, convert_alpha=True)
+            sorc_sheet = SpriteSheet(sorc_img)
+            key = settings.SORCERER_SHEET_COLORKEY
+            inset = 2
+            fw, fh = 76 - inset * 2, 76 - inset * 2
+            frame = sorc_sheet.get_image_at(47 + inset, 14 + inset, fw, fh, 1)
+            frame = frame.copy().convert_alpha()
+            # Xóa nền xám thủ công (fuzzy match)
+            kr, kg, kb = key
+            for y_px in range(frame.get_height()):
+                for x_px in range(frame.get_width()):
+                    r, g, b, a = frame.get_at((x_px, y_px))
+                    if abs(r - kr) <= 2 and abs(g - kg) <= 2 and abs(b - kb) <= 2:
+                        frame.set_at((x_px, y_px), (r, g, b, 0))
+            scale = target_h / fh
+            self.sorcerer_preview = pygame.transform.scale(
+                frame, (int(fw * scale), target_h)
+            )
+        except Exception:
+            pass
     
     def handle_events(self, events):
         """Xử lý input."""
@@ -264,29 +309,37 @@ class CharacterSelectState:
             self.screen.blit(glow, draw_rect.topleft)
     
     def _draw_character_preview(self, cx, cy, char_info, is_hovered):
-        """Vẽ preview nhân vật trong card."""
-        # Floating animation
+        """Vẽ preview nhân vật trong card - sprite thực cho Knight và Sorcerer."""
         float_offset = math.sin(self.frame_count * 0.05) * 3 if is_hovered else 0
         cy += float_offset
-        
         char_type = char_info["type"]
+        
+        # Knight - dùng sprite idle thực
+        if char_type == settings.CHARACTER_KNIGHT and self.knight_preview:
+            img_rect = self.knight_preview.get_rect(center=(int(cx), int(cy)))
+            self.screen.blit(self.knight_preview, img_rect)
+            return
+        
+        # Sorcerer - dùng sprite idle thực
+        if char_type == settings.CHARACTER_SORCERER and self.sorcerer_preview:
+            img_rect = self.sorcerer_preview.get_rect(center=(int(cx), int(cy)))
+            self.screen.blit(self.sorcerer_preview, img_rect)
+            return
+        
+        # Fallback placeholder (Priest + khi sprite lỗi)
+        cy = int(cy)
         w, h = 40, 60
         
         if char_type == settings.CHARACTER_KNIGHT:
-            # Knight - giáp bạc
             body_rect = pygame.Rect(cx - w//2, cy - h//2, w, h)
             pygame.draw.rect(self.screen, settings.COLOR_PLAYER, body_rect, border_radius=4)
-            # Visor
             visor_rect = pygame.Rect(cx - w//2, cy - h//2, w, 12)
             pygame.draw.rect(self.screen, settings.COLOR_PLAYER_VISOR, visor_rect, border_radius=4)
-            # Eyes
             pygame.draw.circle(self.screen, settings.COLOR_WHITE, (cx + 3, cy - h//2 + 8), 2)
             pygame.draw.circle(self.screen, settings.COLOR_WHITE, (cx + 10, cy - h//2 + 8), 2)
-            # Outline
             pygame.draw.rect(self.screen, settings.COLOR_BLACK, body_rect, 2, border_radius=4)
         
         elif char_type == settings.CHARACTER_SORCERER:
-            # Sorcerer - áo choàng tím
             robe_points = [
                 (cx - w//2 + 4, cy - h//2 + 12),
                 (cx + w//2 - 4, cy - h//2 + 12),
@@ -295,7 +348,6 @@ class CharacterSelectState:
             ]
             pygame.draw.polygon(self.screen, settings.COLOR_SORCERER, robe_points)
             pygame.draw.polygon(self.screen, settings.COLOR_BLACK, robe_points, 2)
-            # Mũ nhọn
             hat_points = [
                 (cx - w//2 + 2, cy - h//2 + 14),
                 (cx, cy - h//2 - 18),
@@ -303,28 +355,21 @@ class CharacterSelectState:
             ]
             pygame.draw.polygon(self.screen, settings.COLOR_SORCERER_HAT, hat_points)
             pygame.draw.polygon(self.screen, settings.COLOR_BLACK, hat_points, 2)
-            # Eyes glow
             pygame.draw.circle(self.screen, settings.COLOR_SORCERER_ACCENT, (cx + 2, cy - h//2 + 18), 2)
             pygame.draw.circle(self.screen, settings.COLOR_SORCERER_ACCENT, (cx + 10, cy - h//2 + 18), 2)
         
         elif char_type == settings.CHARACTER_PRIEST:
-            # Priest - áo trắng
             body_rect = pygame.Rect(cx - w//2, cy - h//2, w, h)
             pygame.draw.rect(self.screen, settings.COLOR_PRIEST, body_rect, border_radius=6)
-            # Hood
             hood_rect = pygame.Rect(cx - w//2 - 1, cy - h//2, w + 2, 16)
             pygame.draw.ellipse(self.screen, settings.COLOR_PRIEST_HOOD, hood_rect)
             pygame.draw.ellipse(self.screen, settings.COLOR_BLACK, hood_rect, 2)
-            # Eyes gentle
             pygame.draw.circle(self.screen, (80, 60, 40), (cx + 2, cy - h//2 + 10), 2)
             pygame.draw.circle(self.screen, (80, 60, 40), (cx + 10, cy - h//2 + 10), 2)
-            # Cross
             pygame.draw.line(self.screen, settings.COLOR_PRIEST_ACCENT, (cx + 6, cy - 3), (cx + 6, cy + 9), 2)
             pygame.draw.line(self.screen, settings.COLOR_PRIEST_ACCENT, (cx, cy + 3), (cx + 12, cy + 3), 2)
-            # Halo
             halo_rect = pygame.Rect(cx - 8, cy - h//2 - 6, 24, 6)
             pygame.draw.ellipse(self.screen, settings.COLOR_PRIEST_ACCENT, halo_rect, 2)
-            # Outline
             pygame.draw.rect(self.screen, settings.COLOR_BLACK, body_rect, 2, border_radius=6)
     
     def _draw_random_card(self):

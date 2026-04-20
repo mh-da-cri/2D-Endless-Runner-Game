@@ -170,9 +170,14 @@ class PlayState:
         )
     
     def _is_team_shielded(self):
-        """Kiểm tra có thành viên nào đang bật khiên không."""
+        """Kiểm tra có thành viên nào đang bật khiên hoặc có power-up shield không."""
+        # Kiểm tra power-up của player chính
+        if self.player.has_powerup('shield'):
+            return True
+        # Kiểm tra skill Knight của player chính
         if self.player.skill_active and self.player.character_type == settings.CHARACTER_KNIGHT:
             return True
+        # Kiểm tra skill Knight của đồng hành
         for comp in self.companions:
             if hasattr(comp, 'has_active_shield') and comp.has_active_shield():
                 return True
@@ -201,11 +206,15 @@ class PlayState:
             self.game_speed += settings.SPEED_INCREMENT
         
         # Tốc độ thực tế (có tính dash speed cho obstacles & powerups)
-        active_speed = self.game_speed * settings.DASH_SPEED if self.player.is_dashing else self.game_speed
+        active_speed = self.game_speed * 1.5 if self.player.is_dashing else self.game_speed
         
         # Áp dụng hiệu ứng giảm tốc từ powerup slow_down
         if self.player.has_powerup('slow_down'):
             active_speed *= 0.7
+            
+        # Áp dụng hiệu ứng tăng tốc từ powerup speed_up
+        if self.player.has_powerup('speed_up'):
+            active_speed *= settings.POWERUP_SPEED_MULTIPLIER
         
         # --- Cập nhật player ---
         self.player.update()
@@ -256,7 +265,7 @@ class PlayState:
         # --- Spawn obstacles ---
         self.spawn_timer += 1
         if self.player.is_dashing:
-            self.spawn_timer += (settings.DASH_SPEED - 1.0)
+            self.spawn_timer += 0.5  # Bù thêm 0.5 tương ứng với hệ số dash 1.5x
             
         if self.spawn_timer >= self.next_spawn_delay:
             self._spawn_obstacle()
@@ -310,10 +319,15 @@ class PlayState:
         
         # Va chạm player với obstacle
         team_shielded = self._is_team_shielded()
-        for obstacle in self.obstacles:
+        for obstacle in self.obstacles[:]:
             if player_rect.colliderect(obstacle.get_rect()):
-                # Bất tử hoặc team có khiên → bỏ qua
-                if self.player.is_invincible() or team_shielded:
+                # Nếu có khiên → phá hủy obstacle
+                if team_shielded:
+                    self.obstacles.remove(obstacle)
+                    continue
+                
+                # Bất tử (sau khi trúng đòn) → bỏ qua
+                if self.player.is_invincible():
                     continue
                 
                 # Nhận sát thương
@@ -447,10 +461,20 @@ class PlayState:
             from entities.powerup import PowerUp
             new_powerup = PowerUp(game_speed=self.game_speed)
             
-            # Tránh spawn đè lên obstacle
-            for obs in self.obstacles:
-                if abs(new_powerup.x - obs.x) < 50:
-                    new_powerup.x += 100
+            # Tránh spawn đè lên hoặc quá sát obstacle (kiểm tra lặp lại cho đến khi sạch)
+            safe_distance = 100
+            for _ in range(10):  # Thử tối đa 10 lần dịch chuyển
+                overlapping = False
+                for obs in self.obstacles:
+                    if abs(new_powerup.x - obs.x) < safe_distance:
+                        overlapping = True
+                        break
+                
+                if overlapping:
+                    new_powerup.x += 150  # Dịch chuyển xa hơn một chút
+                    new_powerup.rect.x = new_powerup.x
+                else:
+                    break
                     
             self.powerups.append(new_powerup)
         except ImportError:

@@ -9,7 +9,7 @@ import math
 import os
 import settings
 from utils.spritesheet import SpriteSheet
-from utils.asset_loader import load_image
+from utils.asset_loader import load_image, load_font
 
 
 class Player:
@@ -58,6 +58,14 @@ class Player:
         
         # --- POWERUP SYSTEM ---
         self.active_powerups = {}         # {type: frames_remaining}
+        self.label_font = load_font(16)
+        self.powerup_info = {
+            'shield': {'label': 'Shield', 'color': settings.COLOR_POWERUP_SHIELD},
+            'double_score': {'label': '2x Score', 'color': settings.COLOR_POWERUP_SCORE},
+            'slow_down': {'label': 'Slow Down', 'color': settings.COLOR_POWERUP_SLOW},
+            'speed_up': {'label': 'Speed Up', 'color': settings.COLOR_POWERUP_SPEED},
+            'high_jump': {'label': 'High Jump', 'color': settings.COLOR_POWERUP_JUMP}
+        }
         
         # --- EFFECTS ---
         self.heal_effect_timer = 0
@@ -253,10 +261,12 @@ class Player:
     
     def _execute_jump(self):
         """Hàm con thực thi nhảy lập tức khi hợp lệ."""
+        jump_mult = settings.POWERUP_JUMP_MULTIPLIER if self.has_powerup('high_jump') else 1.0
+        
         if self.jump_count == 0:
-            self.vel_y = settings.JUMP_FORCE
+            self.vel_y = settings.JUMP_FORCE * jump_mult
         else:
-            self.vel_y = settings.DOUBLE_JUMP_FORCE
+            self.vel_y = settings.DOUBLE_JUMP_FORCE * jump_mult
         
         self.jump_count += 1
         self.is_on_ground = False
@@ -434,48 +444,56 @@ class Player:
             screen.blit(self.dead_frame, image_rect)
             return  # Không vẽ thêm gì
         
+        is_flashing = self.invincible_timer > 0 and (self.invincible_timer // 6) % 2 == 0
+        
         # --- Vẽ bình thường theo loại nhân vật ---
         if self.character_type == settings.CHARACTER_SORCERER and self.animations:
             if self.is_dashing:
                 self._draw_dash_effect(screen)
             
-            if self.frame_index >= len(self.animations[self.animation_state]):
-                self.frame_index = 0
-            current_image = self.animations[self.animation_state][self.frame_index]
-            image_rect = current_image.get_rect(midbottom=self.rect.midbottom)
-            if self.animation_state == 'dash':
-                image_rect.x += 15
-            screen.blit(current_image, image_rect)
+            if not is_flashing:
+                if self.frame_index >= len(self.animations[self.animation_state]):
+                    self.frame_index = 0
+                current_image = self.animations[self.animation_state][self.frame_index]
+                image_rect = current_image.get_rect(midbottom=self.rect.midbottom)
+                if self.animation_state == 'dash':
+                    image_rect.x += 15
+                screen.blit(current_image, image_rect)
+                
         elif self.character_type == settings.CHARACTER_SORCERER:
-            self._draw_sorcerer(screen)
+            if not is_flashing:
+                self._draw_sorcerer(screen)
+                
         elif self.character_type == settings.CHARACTER_PRIEST:
-            self._draw_priest(screen)
+            if not is_flashing:
+                self._draw_priest(screen)
+                
         else:
             # Knight - dùng Sprite Sheet
             if self.is_dashing:
                 self._draw_dash_effect(screen)
                 
-            # Kiểm tra kĩ index trước khi vẽ
-            if self.frame_index >= len(self.animations[self.animation_state]):
-                self.frame_index = 0
-            current_image = self.animations[self.animation_state][self.frame_index]
-            
-            # Căn hình vào giữa dưới (midbottom) của hitbox
-            image_rect = current_image.get_rect(midbottom=self.rect.midbottom)
-            screen.blit(current_image, image_rect)
+            if not is_flashing:
+                # Kiểm tra kĩ index trước khi vẽ
+                if self.frame_index >= len(self.animations[self.animation_state]):
+                    self.frame_index = 0
+                current_image = self.animations[self.animation_state][self.frame_index]
+                
+                # Căn hình vào giữa dưới (midbottom) của hitbox
+                image_rect = current_image.get_rect(midbottom=self.rect.midbottom)
+                screen.blit(current_image, image_rect)
         
-        # Bất tử (invincible) - nhấp nháy
-        if self.invincible_timer > 0 and (self.invincible_timer // 6) % 2 == 0:
-            flash = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-            flash.fill((255, 255, 255, 60))
-            screen.blit(flash, (self.x, self.y))
-        
-        # Skill shield Knight - vòng sáng
+        # Skill shield Knight - vòng tròn bọc quanh nhân vật
         if self.skill_active and self.character_type == settings.CHARACTER_KNIGHT:
             self.shield_pulse = (self.shield_pulse + 0.1) % (2 * math.pi)
-            r = int(4 + 2 * math.sin(self.shield_pulse))
-            shield_rect = self.rect.inflate(r * 2, r * 2)
-            pygame.draw.rect(screen, settings.COLOR_SHIELD_SKILL, shield_rect, 2, border_radius=8)
+            self._draw_circle_shield(screen, settings.COLOR_SHIELD_SKILL)
+        
+        # Powerup shield - vòng tròn xanh dương bọc quanh nhân vật (tất cả nhân vật sprite)
+        if self.has_powerup('shield') and self.animations:
+            if not (self.skill_active and self.character_type == settings.CHARACTER_KNIGHT):
+                self.shield_pulse = (self.shield_pulse + 0.08) % (2 * math.pi)
+            self._draw_circle_shield(screen, settings.COLOR_POWERUP_SHIELD, base_padding=24)
+            
         
         # Heal effect
         if self.heal_effect_timer > 0:
@@ -487,6 +505,19 @@ class Player:
             bar_width = self.width * (1 - cooldown_ratio)
             bar_rect = pygame.Rect(self.x, self.y - 12, bar_width, 4)
             pygame.draw.rect(screen, settings.COLOR_SCORE, bar_rect)
+            
+        # --- VẼ NHÃN POWER-UP ĐANG ACTIVE ---
+        if self.active_powerups:
+            # Điểm bắt đầu vẽ (phía trên dash bar nếu có)
+            current_label_y = self.y - (25 if not self.can_dash else 15)
+            
+            # Vẽ các power-up đang active (xếp chồng lên nhau)
+            for p_type in sorted(self.active_powerups.keys()):
+                info = self.powerup_info.get(p_type, {'label': p_type.title(), 'color': settings.COLOR_WHITE})
+                label_surf = self.label_font.render(info['label'], True, info['color'])
+                label_rect = label_surf.get_rect(centerx=self.rect.centerx, bottom=current_label_y)
+                screen.blit(label_surf, label_rect)
+                current_label_y -= 14  # Khoảng cách giữa các dòng
             
     def _draw_dash_effect(self, screen):
         """Vẽ hiệu ứng afterimage khi dash bằng sprite."""
@@ -506,6 +537,27 @@ class Player:
             else:
                 image_rect.x = self.x - (i + 1) * 15
             screen.blit(current_image, image_rect)
+    
+    def _draw_circle_shield(self, screen, color, base_padding=18, pulse_amplitude=5):
+        """Vẽ lá chắn hình tròn có hiệu ứng glow bọc quanh nhân vật."""
+        cx = self.rect.centerx
+        cy = self.rect.centery
+        base_r = max(self.width, self.height) // 2 + base_padding
+        r = base_r + int(pulse_amplitude * math.sin(self.shield_pulse))
+        
+        # Lớp glow mờ bên ngoài (SRCALPHA)
+        glow_r = r + 14
+        glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (*color, 28), (glow_r, glow_r), glow_r)
+        pygame.draw.circle(glow_surf, (*color, 18), (glow_r, glow_r), glow_r - 4)
+        screen.blit(glow_surf, (cx - glow_r, cy - glow_r))
+        
+        # Vòng tròn chính
+        pygame.draw.circle(screen, color, (cx, cy), r, 2)
+        # Vòng tròn phụ bên trong (mờ hơn, dùng surface)
+        inner_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(inner_surf, (*color, 60), (r, r), r - 6, 1)
+        screen.blit(inner_surf, (cx - r, cy - r))
     
     def _get_skill_cooldown(self):
         """Trả về giá trị cooldown skill theo loại nhân vật."""
@@ -623,11 +675,9 @@ class Player:
         """Vẽ nhân vật Sorcerer (Pháp sư)."""
         body_color = settings.COLOR_SORCERER
         
-        # Powerup shield aura
+        # Powerup shield - đổi màu thân (vòng tròn shield vẽ trong draw())
         if self.has_powerup('shield'):
             body_color = settings.COLOR_POWERUP_SHIELD
-            aura_rect = self.rect.inflate(10, 10)
-            pygame.draw.rect(screen, settings.COLOR_POWERUP_SHIELD, aura_rect, 2, border_radius=6)
         
         # Áo choàng (thân chính) - hình thang
         robe_points = [
@@ -683,11 +733,9 @@ class Player:
         """Vẽ nhân vật Priest (Nữ tu)."""
         body_color = settings.COLOR_PRIEST
         
-        # Powerup shield aura
+        # Powerup shield - đổi màu thân (vòng tròn shield vẽ trong draw())
         if self.has_powerup('shield'):
             body_color = settings.COLOR_POWERUP_SHIELD
-            aura_rect = self.rect.inflate(10, 10)
-            pygame.draw.rect(screen, settings.COLOR_POWERUP_SHIELD, aura_rect, 2, border_radius=6)
         
         # Áo tu (thân chính) - hình chữ nhật bo góc
         pygame.draw.rect(screen, body_color, self.rect, border_radius=6)

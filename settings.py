@@ -24,9 +24,9 @@ GROUND_HEIGHT = 100           # Chiều cao phần mặt đất vẽ bên dướ
 # PLAYER / NHÂN VẬT (Knight)
 # ============================================================
 PLAYER_START_X = 150          # Vị trí X cố định của player
-PLAYER_WIDTH = 25             # Chiều rộng hitbox bình thường
-PLAYER_HEIGHT = 55            # Chiều cao hitbox bình thường
-PLAYER_DUCK_HEIGHT = 35       # Chiều cao hitbox khi cúi
+PLAYER_WIDTH = 50             # Chiều rộng hitbox bình thường
+PLAYER_HEIGHT = 100           # Chiều cao hitbox bình thường (~88% visual 120px)
+PLAYER_DUCK_HEIGHT = 65       # Chiều cao hitbox khi cúi (~64% standing)
 
 # Sprite Configuration cho blastalot-wings-alpha.png
 SPRITE_IMAGE = "blastalot-wings-alpha.png"
@@ -34,18 +34,18 @@ SPRITE_CROUCH_IMAGE = "blastalot-wings-crouch-alpha.png"
 SPRITE_DEAD_IMAGE = "dead status.png"
 SPRITE_FRAME_WIDTH = 44
 SPRITE_FRAME_HEIGHT = 48
-SPRITE_SCALE = 1.3
+SPRITE_SCALE = 2.5             # ≈120px visual (1.5× obstacle max 80px)
 ANIMATION_COOLDOWN = 100      # Thời gian chuyển frame (ms)
 HIT_STOP_FRAMES = 45          # Thời gian khựng hình khi đâm quái (frames) ~0.75 giây
 
 # Sprite Configuration cho sorlosheet.png (Sorcerer)
 SORCERER_SPRITE_IMAGE = "sorlosheet.png"
-SORCERER_SPRITE_SCALE = 0.85
+SORCERER_SPRITE_SCALE = 1.58   # ≈120px visual (1.5× obstacle max 80px)
 SORCERER_ANIMATION_COOLDOWN = 120
 SORCERER_SKILL_CAST_FRAMES = 30
 SORCERER_FIREBALL_RELEASE_DELAY = 14
 SORCERER_FIREBALL_SPAWN_X_OFFSET = 50
-SORCERER_FIREBALL_SPAWN_Y_OFFSET = 18
+SORCERER_FIREBALL_SPAWN_Y_OFFSET = 60  # Hạ xuống gần mặt đất để trúng quái thấp
 SORCERER_SHEET_COLORKEY = (128, 128, 128)
 
 JUMP_FORCE = -15              # Lực nhảy lần 1 (âm = đi lên)
@@ -53,9 +53,9 @@ DOUBLE_JUMP_FORCE = -13       # Lực nhảy lần 2 (yếu hơn một chút)
 MAX_JUMPS = 2                 # Số lần nhảy tối đa (double jump)
 JUMP_BUFFER_FRAMES = 9        # Thời gian nhớ phím nhảy trước khi chạm đất (frames) ~0.15s
 
-DASH_SPEED = 12               # Tốc độ dash (pixels/frame)
 DASH_DURATION = 45            # Thời gian dash (frames) = 0.75 giây (60 FPS)
 DASH_COOLDOWN = 180           # Cooldown giữa các lần dash (frames) = 3.0 giây
+# Ghi chú: Hệ số tốc độ khi dash = 1.5x tốc độ game hiện tại (xem play_state.py)
 
 DUCK_SPEED_BONUS = 1          # Bonus tốc độ khi cúi (player hơi trượt nhanh hơn)
 
@@ -85,7 +85,7 @@ SKILL_KNIGHT_COOLDOWN = 1800  # Cooldown: 30 giây (30 * 60 frames) - tính SAU 
 SKILL_SORCERER_COOLDOWN = 300 # Cooldown: 5 giây (5 * 60 frames)
 FIREBALL_SPEED = 10           # Tốc độ bay của fireball
 FIREBALL_COUNT = 3            # Số quả cầu lửa mỗi lần bắn
-FIREBALL_SIZE = 15            # Bán kính fireball
+FIREBALL_SIZE = 22            # Bán kính fireball (vẽ + hitbox)
 FIREBALL_FIRE_INTERVAL = 30   # 0.5 giây giữa mỗi viên đạn
 
 # Priest - Hồi máu
@@ -117,6 +117,9 @@ POWERUP_DURATION = 300        # Hiệu lực 5 giây (ở 60 FPS)
 
 MIN_POWERUP_SPAWN_DELAY = 600   # Khoảng 10s
 MAX_POWERUP_SPAWN_DELAY = 1200  # Khoảng 20s
+
+POWERUP_SPEED_MULTIPLIER = 1.3  # Tăng 30% tốc độ
+POWERUP_JUMP_MULTIPLIER = 1.2   # Tăng 20% lực nhảy
 
 # ============================================================
 # GAME SPEED / TỐC ĐỘ GAME
@@ -164,6 +167,8 @@ COLOR_BLACK = (0, 0, 0)
 COLOR_POWERUP_SHIELD = (100, 200, 255) # Xanh dương nhạt (bất tử)
 COLOR_POWERUP_SCORE = (255, 215, 0)    # Vàng gold (nhân đôi điểm)
 COLOR_POWERUP_SLOW = (100, 255, 100)   # Xanh lá (giảm tốc)
+COLOR_POWERUP_SPEED = (255, 120, 50)   # Cam đỏ (tăng tốc)
+COLOR_POWERUP_JUMP = (255, 100, 255)   # Hồng/Tím (nhảy cao)
 
 # Nhân vật mới
 COLOR_SORCERER = (120, 60, 180)        # Pháp sư - tím đậm (áo choàng)

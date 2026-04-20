@@ -78,9 +78,9 @@ class MenuState:
             
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.play_hovered:
-                    # Chuyển sang Play State
-                    from states.play_state import PlayState
-                    self.game_manager.change_state(PlayState(self.game_manager))
+                    # Chuyển sang Character Select State
+                    from states.character_select_state import CharacterSelectState
+                    self.game_manager.change_state(CharacterSelectState(self.game_manager))
                 
                 elif self.exit_hovered:
                     pygame.quit()

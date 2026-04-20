@@ -83,9 +83,9 @@ class GameOverState:
             
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.retry_hovered:
-                    # Chơi lại
-                    from states.play_state import PlayState
-                    self.game_manager.change_state(PlayState(self.game_manager))
+                    # Chơi lại - quay về chọn nhân vật
+                    from states.character_select_state import CharacterSelectState
+                    self.game_manager.change_state(CharacterSelectState(self.game_manager))
                 
                 elif self.menu_hovered:
                     # Về menu
@@ -94,8 +94,8 @@ class GameOverState:
             
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    from states.play_state import PlayState
-                    self.game_manager.change_state(PlayState(self.game_manager))
+                    from states.character_select_state import CharacterSelectState
+                    self.game_manager.change_state(CharacterSelectState(self.game_manager))
                 elif event.key == pygame.K_ESCAPE:
                     from states.menu_state import MenuState
                     self.game_manager.change_state(MenuState(self.game_manager))

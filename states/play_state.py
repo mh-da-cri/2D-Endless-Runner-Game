@@ -68,6 +68,8 @@ class PlayState:
         # Flags
         self.is_paused = False
         self.hit_stop_timer = 0
+        self.death_snapshot = None    # Snapshot màn hình lúc xác chết
+        self.pending_game_over = False  # Flag chờ chuyển sang GameOver
     
     def handle_events(self, events):
         """
@@ -127,23 +129,45 @@ class PlayState:
         result = player.use_skill()
         
         if result == "fireball":
-            # Thêm vào hàng đợi bắn tuần tự
-            self.fireball_queue.append({
-                'source': player,
-                'count': settings.FIREBALL_COUNT,
-                'timer': 0  # Bắn viên đầu tiên ngay lập tức
-            })
+            self._queue_fireballs(player)
     
     def _handle_companion_skill(self, companion):
         """Xử lý khi đồng hành dùng skill."""
         result = companion.use_skill()
         
         if result == "fireball":
-            self.fireball_queue.append({
-                'source': companion,
-                'count': settings.FIREBALL_COUNT,
-                'timer': 0
-            })
+            self._queue_fireballs(companion)
+    
+    def _queue_fireballs(self, source):
+        """Thêm lượt bắn vào hàng đợi, delay viên đầu để khớp frame vung gậy."""
+        first_shot_delay = (
+            settings.SORCERER_FIREBALL_RELEASE_DELAY
+            if getattr(source, 'character_type', None) == settings.CHARACTER_SORCERER
+            else 0
+        )
+        self.fireball_queue.append({
+            'source': source,
+            'count': settings.FIREBALL_COUNT,
+            'timer': first_shot_delay
+        })
+    
+    def _get_fireball_spawn_position(self, source):
+        """Tính vị trí sinh fireball ngay đầu gậy thay vì giữa hitbox."""
+        if getattr(source, 'character_type', None) == settings.CHARACTER_SORCERER:
+            if hasattr(source, 'companion_index'):
+                return (
+                    int(source.x + source.width + 18),
+                    int(source.y + source.height * 0.35)
+                )
+            return (
+                int(source.x + settings.SORCERER_FIREBALL_SPAWN_X_OFFSET),
+                int(source.y + settings.SORCERER_FIREBALL_SPAWN_Y_OFFSET)
+            )
+        
+        return (
+            int(source.x + source.width),
+            int(source.y + source.height // 2)
+        )
     
     def _is_team_shielded(self):
         """Kiểm tra có thành viên nào đang bật khiên không."""
@@ -161,10 +185,16 @@ class PlayState:
             
         # --- Hit-stop Freeze Logic ---
         if self.player.is_dead:
+            # Nếu đang chờ chuyển game over (draw() đã vẽ và chụp xong) → chuyển state
+            if self.pending_game_over:
+                self._game_over()
+                return
+            
             self.hit_stop_timer -= 1
             if self.hit_stop_timer <= 0:
-                self._game_over()
-            return  # Đóng băng không cập nhật physics/cuộn cảnh
+                # Đặt flag → draw() frame này sẽ vẽ xác chết rồi chụp snapshot
+                self.pending_game_over = True
+            return  # Đóng băng - không cập nhật physics/cuộn cảnh
         
         # --- Cập nhật game speed ---
         if self.game_speed < settings.MAX_GAME_SPEED:
@@ -212,7 +242,8 @@ class PlayState:
                 try:
                     from entities.fireball import Fireball
                     source = fq['source']
-                    fb = Fireball(source.x + source.width, source.y + source.height // 2)
+                    spawn_x, spawn_y = self._get_fireball_spawn_position(source)
+                    fb = Fireball(spawn_x, spawn_y)
                     self.fireballs.append(fb)
                 except ImportError:
                     pass
@@ -360,6 +391,11 @@ class PlayState:
             
             self.screen.blit(title_text, title_rect)
             self.screen.blit(hint_text, hint_rect)
+            
+        # 9. Chụp snapshot lúc chết (nếu đang chờ chuyển state)
+        # Chụp ở đây để đảm bảo đã vẽ xong xác chết (ở bước 6) lên screen
+        if self.pending_game_over and self.death_snapshot is None:
+            self.death_snapshot = self.screen.copy()
     
     def _spawn_companion_pickup(self):
         """Tạo item đồng hành."""
@@ -423,8 +459,8 @@ class PlayState:
     def _game_over(self):
         """Xử lý khi game over."""
         from states.gameover_state import GameOverState
-        # Chụp màn hình hiện tại để làm nền lúc game over
-        bg_snapshot = self.screen.copy()
+        # Dùng snapshot đã chụp lúc đóng băng, fallback sang screen hiện tại
+        bg_snapshot = self.death_snapshot if self.death_snapshot else self.screen.copy()
         
         self.game_manager.change_state(
             GameOverState(self.game_manager, self.score, self.highscore, bg_snapshot)

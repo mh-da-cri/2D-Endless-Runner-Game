@@ -20,8 +20,8 @@ class Fireball:
             y: Tọa độ Y ban đầu (vị trí player)
             offset_y: Offset dọc để tạo spread giữa các fireball
         """
-        self.x = x + settings.PLAYER_WIDTH  # Bắn từ phía trước nhân vật
-        self.y = y + settings.PLAYER_HEIGHT // 2 + offset_y
+        self.x = x
+        self.y = y + offset_y
         self.radius = settings.FIREBALL_SIZE
         self.speed = settings.FIREBALL_SPEED
         

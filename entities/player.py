@@ -62,17 +62,20 @@ class Player:
         # --- EFFECTS ---
         self.heal_effect_timer = 0
         self.shield_pulse = 0
+        self.skill_cast_timer = 0
         
-        # --- ANIMATION SETUP (chỉ cho Knight) ---
+        # --- DEAD SPRITE (load cho tất cả nhân vật) ---
+        dead_img = load_image(settings.SPRITE_DEAD_IMAGE, convert_alpha=True)
+        self.dead_sheet = SpriteSheet(dead_img)
+        self.dead_frame = self.dead_sheet.get_image(0, 0, 32, 64, settings.SPRITE_SCALE)
+        
+        # --- ANIMATION SETUP ---
         if self.character_type == settings.CHARACTER_KNIGHT:
             self.sprite_sheet_image = load_image(settings.SPRITE_IMAGE, convert_alpha=True)
             self.sprite_sheet = SpriteSheet(self.sprite_sheet_image)
             
             crouch_img = load_image(settings.SPRITE_CROUCH_IMAGE, convert_alpha=True)
             self.crouch_sheet = SpriteSheet(crouch_img)
-            
-            dead_img = load_image(settings.SPRITE_DEAD_IMAGE, convert_alpha=True)
-            self.dead_sheet = SpriteSheet(dead_img)
             
             self.animations = {
                 'idle': [],
@@ -84,6 +87,20 @@ class Player:
                 'dead': []
             }
             self._load_animations()
+        elif self.character_type == settings.CHARACTER_SORCERER:
+            self.sprite_sheet_image = load_image(settings.SORCERER_SPRITE_IMAGE, convert_alpha=True)
+            self.sprite_sheet = SpriteSheet(self.sprite_sheet_image)
+            self.animations = {
+                'idle': [],
+                'run': [],
+                'jump': [],
+                'fall': [],
+                'duck': [],
+                'dash': [],
+                'skill': [],
+                'dead': []
+            }
+            self._load_sorcerer_animations()
         else:
             # Các nhân vật khác dùng hình học - không cần sprite sheet
             self.sprite_sheet = None
@@ -126,6 +143,113 @@ class Player:
             
         # Dead: Lấy từ ảnh chết độc lập (kích thước gốc 32x64)
         self.animations['dead'].append(self.dead_sheet.get_image(0, 0, 32, 64, s))
+    
+    def _load_sorcerer_animations(self):
+        """Cắt animation Sorcerer từ sorlosheet.png."""
+        s = settings.SORCERER_SPRITE_SCALE
+        key = settings.SORCERER_SHEET_COLORKEY
+        
+        def frame(x, y, w=76, h=76, inset=2):
+            image = self.sprite_sheet.get_image_at(
+                x + inset, y + inset, w - inset * 2, h - inset * 2, 1, colorkey=key
+            )
+            image = self._clear_colorkey_pixels(image, key)
+            image = self._clear_edge_border_pixels(image)
+            if s != 1:
+                image = pygame.transform.scale(
+                    image,
+                    (int(image.get_width() * s), int(image.get_height() * s))
+                )
+            return image
+        
+        self.animations['idle'].append(frame(47, 14, 76, 76))
+        
+        jump_frames = [
+            (558, 255, 46, 63),
+            (622, 241, 43, 78),
+            (689, 240, 44, 79),
+            (767, 221, 42, 104),
+            (833, 200, 43, 166),
+        ]
+        fall_frames = [
+            (897, 220, 42, 107),
+            (969, 239, 44, 88),
+            (1036, 253, 43, 83),
+            (1099, 269, 46, 63),
+        ]
+        for rect in jump_frames:
+            self.animations['jump'].append(frame(*rect, inset=0))
+        for rect in fall_frames:
+            self.animations['fall'].append(frame(*rect, inset=0))
+        
+        for rect in [
+            (24, 103, 76, 76),
+            (104, 103, 76, 76),
+            (186, 103, 76, 76),
+            (263, 103, 76, 76),
+        ]:
+            self.animations['run'].append(frame(*rect))
+        
+        for rect in [
+            (24, 379, 76, 76),
+            (92, 379, 76, 76),
+            (160, 379, 76, 76),
+            (234, 379, 110, 76),
+            (372, 379, 120, 76),
+            (498, 379, 120, 76),
+        ]:
+            self.animations['dash'].append(frame(*rect))
+        
+        for rect in [
+            (86, 553, 64, 76),
+            (150, 553, 70, 76),
+            (232, 553, 74, 76),
+            (310, 553, 64, 76),
+        ]:
+            self.animations['skill'].append(frame(*rect))
+        
+        self.animations['duck'].append(frame(1007, 473, 57, 60, inset=0))
+        self.animations['dead'].append(self.dead_frame)
+    
+    def _clear_colorkey_pixels(self, image, colorkey):
+        """Xóa nền xám của spritesheet trước khi scale để không còn ô vuông."""
+        image = image.copy().convert_alpha()
+        key_r, key_g, key_b = colorkey
+        for y in range(image.get_height()):
+            for x in range(image.get_width()):
+                r, g, b, a = image.get_at((x, y))
+                if abs(r - key_r) <= 2 and abs(g - key_g) <= 2 and abs(b - key_b) <= 2:
+                    image.set_at((x, y), (r, g, b, 0))
+        return image
+    
+    def _clear_edge_border_pixels(self, image):
+        """Xóa đường kẻ frame màu đen nối với mép ảnh, giữ outline nhân vật bên trong."""
+        image = image.copy().convert_alpha()
+        width, height = image.get_size()
+        stack = []
+        visited = set()
+        
+        for x in range(width):
+            stack.append((x, 0))
+            stack.append((x, height - 1))
+        for y in range(height):
+            stack.append((0, y))
+            stack.append((width - 1, y))
+        
+        while stack:
+            x, y = stack.pop()
+            if (x, y) in visited or x < 0 or y < 0 or x >= width or y >= height:
+                continue
+            visited.add((x, y))
+            
+            r, g, b, a = image.get_at((x, y))
+            if a == 0 or r > 8 or g > 8 or b > 8:
+                continue
+            
+            image.set_at((x, y), (r, g, b, 0))
+            stack.extend(((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+        
+        return image
     
     def _execute_jump(self):
         """Hàm con thực thi nhảy lập tức khi hợp lệ."""
@@ -263,11 +387,18 @@ class Player:
         if self.heal_effect_timer > 0:
             self.heal_effect_timer -= 1
         
-        # --- ANIMATION LOGIC (chỉ cho Knight dùng sprite) ---
+        if self.skill_cast_timer > 0:
+            self.skill_cast_timer -= 1
+        
+        # --- ANIMATION LOGIC ---
         if self.animations:
+            previous_animation_state = self.animation_state
+            
             # 1. Cập nhật trạng thái
             if self.is_dashing:
                 self.animation_state = 'dash'
+            elif self.skill_cast_timer > 0 and 'skill' in self.animations:
+                self.animation_state = 'skill'
             elif self.vel_y < 0:
                 self.animation_state = 'jump'
             elif self.vel_y > 0 and not self.is_on_ground:
@@ -277,10 +408,15 @@ class Player:
                     self.animation_state = 'duck'
                 else:
                     self.animation_state = 'run'
+            
+            if previous_animation_state != self.animation_state:
+                self.frame_index = 0
+                self.update_time = pygame.time.get_ticks()
                     
             # 2. Chuyển frame liên tục
             current_time = pygame.time.get_ticks()
-            if current_time - self.update_time > settings.ANIMATION_COOLDOWN:
+            animation_cooldown = settings.SORCERER_ANIMATION_COOLDOWN if self.character_type == settings.CHARACTER_SORCERER else settings.ANIMATION_COOLDOWN
+            if current_time - self.update_time > animation_cooldown:
                 self.update_time = current_time
                 self.frame_index += 1
                 if self.frame_index >= len(self.animations[self.animation_state]):
@@ -291,7 +427,26 @@ class Player:
     
     def draw(self, screen):
         """Vẽ player lên màn hình - route theo loại nhân vật."""
-        if self.character_type == settings.CHARACTER_SORCERER:
+        
+        # --- XÁC CHẾT (tất cả nhân vật dùng dead_frame) ---
+        if self.is_dead:
+            image_rect = self.dead_frame.get_rect(midbottom=self.rect.midbottom)
+            screen.blit(self.dead_frame, image_rect)
+            return  # Không vẽ thêm gì
+        
+        # --- Vẽ bình thường theo loại nhân vật ---
+        if self.character_type == settings.CHARACTER_SORCERER and self.animations:
+            if self.is_dashing:
+                self._draw_dash_effect(screen)
+            
+            if self.frame_index >= len(self.animations[self.animation_state]):
+                self.frame_index = 0
+            current_image = self.animations[self.animation_state][self.frame_index]
+            image_rect = current_image.get_rect(midbottom=self.rect.midbottom)
+            if self.animation_state == 'dash':
+                image_rect.x += 15
+            screen.blit(current_image, image_rect)
+        elif self.character_type == settings.CHARACTER_SORCERER:
             self._draw_sorcerer(screen)
         elif self.character_type == settings.CHARACTER_PRIEST:
             self._draw_priest(screen)
@@ -345,9 +500,11 @@ class Player:
             alpha = max(100 - (i * 30), 0)
             current_image.set_alpha(alpha)
             
-            trail_x = self.x - (i + 1) * 15
             image_rect = current_image.get_rect(midbottom=self.rect.midbottom)
-            image_rect.x = trail_x
+            if self.character_type == settings.CHARACTER_SORCERER:
+                image_rect.x += 15 - (i + 1) * 8
+            else:
+                image_rect.x = self.x - (i + 1) * 15
             screen.blit(current_image, image_rect)
     
     def _get_skill_cooldown(self):
@@ -422,6 +579,9 @@ class Player:
         
         elif self.character_type == settings.CHARACTER_SORCERER:
             # Bắn fireball - cooldown bắt đầu ngay (PlayState sẽ tạo fireball entities)
+            self.skill_cast_timer = settings.SORCERER_SKILL_CAST_FRAMES
+            self.frame_index = 0
+            self.update_time = pygame.time.get_ticks()
             self.skill_cooldown_timer = self.skill_cooldown_max
             return "fireball"
         
@@ -642,6 +802,7 @@ class Player:
         self.can_use_skill = True
         self.heal_effect_timer = 0
         self.shield_pulse = 0
+        self.skill_cast_timer = 0
         self.active_powerups = {}
         self.frame_index = 0
         self.animation_state = 'idle'

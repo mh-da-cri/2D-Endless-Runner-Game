@@ -36,7 +36,17 @@ SPRITE_FRAME_WIDTH = 44
 SPRITE_FRAME_HEIGHT = 48
 SPRITE_SCALE = 1.3
 ANIMATION_COOLDOWN = 100      # Thời gian chuyển frame (ms)
-HIT_STOP_FRAMES = 15          # Thời gian khựng hình khi đâm quái (frames) ~0.25 giây
+HIT_STOP_FRAMES = 45          # Thời gian khựng hình khi đâm quái (frames) ~0.75 giây
+
+# Sprite Configuration cho sorlosheet.png (Sorcerer)
+SORCERER_SPRITE_IMAGE = "sorlosheet.png"
+SORCERER_SPRITE_SCALE = 0.85
+SORCERER_ANIMATION_COOLDOWN = 120
+SORCERER_SKILL_CAST_FRAMES = 30
+SORCERER_FIREBALL_RELEASE_DELAY = 14
+SORCERER_FIREBALL_SPAWN_X_OFFSET = 50
+SORCERER_FIREBALL_SPAWN_Y_OFFSET = 18
+SORCERER_SHEET_COLORKEY = (128, 128, 128)
 
 JUMP_FORCE = -15              # Lực nhảy lần 1 (âm = đi lên)
 DOUBLE_JUMP_FORCE = -13       # Lực nhảy lần 2 (yếu hơn một chút)

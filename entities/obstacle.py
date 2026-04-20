@@ -25,7 +25,7 @@ class Obstacle:
         """
         # Random loại nếu không chỉ định
         if obstacle_type is None:
-            # 70% ground, 30% flying
+            # 70% ground, 30% flying 
             self.type = self.TYPE_GROUND if random.random() < 0.7 else self.TYPE_FLYING
         else:
             self.type = obstacle_type
@@ -59,15 +59,27 @@ class Obstacle:
         self.color = settings.COLOR_OBSTACLE_GROUND
     
     def _init_flying_obstacle(self):
-        """Khởi tạo quái bay."""
+        """Khởi tạo quái bay với 3 mức độ cao khác nhau"""
         self.width = settings.FLYING_OBSTACLE_WIDTH
         self.height = settings.FLYING_OBSTACLE_HEIGHT
+        
+        # Chọn ngẫu nhiên loại quái bay
+        subtype = random.choice(["jump", "duck", "double_jump"])
+        
+        if subtype == "jump":
+            # Quái bay thấp -> Nhảy 1 lần.
+            self.y = 560
+            self.color = settings.COLOR_OBSTACLE_FLYING
+        elif subtype == "duck":
+            # Quái bay vừa -> Cúi xuống/Nhảy 2 lần.
+            self.y = 510
+            self.color = settings.COLOR_OBSTACLE_FLYING
+        else: # "double_jump"
+            # Quái bay cao -> Đi bình thường/Nhảy 2 lần.
+            self.y = 450
+            self.color = settings.COLOR_OBSTACLE_FLYING
+            
         self.x = settings.SCREEN_WIDTH + random.randint(0, 100)
-        self.y = random.randint(
-            settings.FLYING_OBSTACLE_Y_MIN,
-            settings.FLYING_OBSTACLE_Y_MAX
-        )
-        self.color = settings.COLOR_OBSTACLE_FLYING
     
     def update(self, game_speed=None):
         """

@@ -6,6 +6,8 @@ Ban đầu dùng hình học placeholder, sau thay bằng sprite.
 
 import pygame
 import settings
+from utils.spritesheet import SpriteSheet
+from utils.asset_loader import load_image
 
 
 class Player:
@@ -24,9 +26,11 @@ class Player:
         
         # Jump
         self.jump_count = 0               # Số lần đã nhảy (max = MAX_JUMPS)
+        self.jump_buffer_timer = 0        # Timer lưu lại nút bấm nhảy
         
         # Duck / Cúi
         self.is_ducking = False
+        self.is_dead = False
         
         # Dash
         self.is_dashing = False
@@ -36,7 +40,69 @@ class Player:
         
         # Hitbox rect (cập nhật mỗi frame)
         self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        
+        # --- ANIMATION SETUP ---
+        self.sprite_sheet_image = load_image(settings.SPRITE_IMAGE, convert_alpha=True)
+        self.sprite_sheet = SpriteSheet(self.sprite_sheet_image)
+        
+        crouch_img = load_image(settings.SPRITE_CROUCH_IMAGE, convert_alpha=True)
+        self.crouch_sheet = SpriteSheet(crouch_img)
+        
+        dead_img = load_image(settings.SPRITE_DEAD_IMAGE, convert_alpha=True)
+        self.dead_sheet = SpriteSheet(dead_img)
+        
+        self.animations = {
+            'idle': [],
+            'run': [],
+            'jump': [],
+            'fall': [],
+            'duck': [],
+            'dash': [],
+            'dead': []
+        }
+        self._load_animations()
+        
+        self.frame_index = 0
+        self.animation_state = 'idle'
+        self.update_time = pygame.time.get_ticks()
+        
+    def _load_animations(self):
+        """Cắt ảnh từ Sprite Sheet."""
+        w = settings.SPRITE_FRAME_WIDTH
+        h = settings.SPRITE_FRAME_HEIGHT
+        s = settings.SPRITE_SCALE
+        
+        # Idle: Cột 0, Hàng 0
+        self.animations['idle'].append(self.sprite_sheet.get_image(0, 0, w, h, s))
+        # Jump: Cột 1, Hàng 0
+        self.animations['jump'].append(self.sprite_sheet.get_image(1, 0, w, h, s))
+        # Fall: Cột 2, Hàng 0
+        self.animations['fall'].append(self.sprite_sheet.get_image(2, 0, w, h, s))
+        # Run: Cột 3 đến 8, Hàng 0
+        for i in range(3, 9):
+            self.animations['run'].append(self.sprite_sheet.get_image(i, 0, w, h, s))
+            
+        # Duck: Lấy từ ảnh crouch độc lập (kích thước gốc 44x44)
+        self.animations['duck'].append(self.crouch_sheet.get_image(0, 0, 44, 44, s))
+        
+        # Dash: Hàng dưới gần chữ của Sprite Sheet (pixel Y = 1768, height=35 để dừng đúng y=1803 là mũi chân hiệp sĩ).
+        for i in range(3, 9):
+            pixel_x = i * w
+            self.animations['dash'].append(self.sprite_sheet.get_image_at(pixel_x, 1768, w, 35, s))
+            
+        # Dead: Lấy từ ảnh chết độc lập (kích thước gốc 32x64)
+        self.animations['dead'].append(self.dead_sheet.get_image(0, 0, 32, 64, s))
     
+    def _execute_jump(self):
+        """Hàm con thực thi nhảy lập tức khi hợp lệ."""
+        if self.jump_count == 0:
+            self.vel_y = settings.JUMP_FORCE
+        else:
+            self.vel_y = settings.DOUBLE_JUMP_FORCE
+        
+        self.jump_count += 1
+        self.is_on_ground = False
+
     def jump(self):
         """
         Thực hiện nhảy.
@@ -48,13 +114,9 @@ class Player:
             return
         
         if self.jump_count < settings.MAX_JUMPS:
-            if self.jump_count == 0:
-                self.vel_y = settings.JUMP_FORCE
-            else:
-                self.vel_y = settings.DOUBLE_JUMP_FORCE
-            
-            self.jump_count += 1
-            self.is_on_ground = False
+            self._execute_jump()
+        else:
+            self.jump_buffer_timer = settings.JUMP_BUFFER_FRAMES
     
     def duck(self, is_pressing):
         """
@@ -104,11 +166,24 @@ class Player:
             self.vel_y = 0
             self.is_on_ground = True
             self.jump_count = 0
+            
+            # Nếu có jump buffer, nhảy ngay lập tức khi vừa chạm đất
+            if self.jump_buffer_timer > 0 and not self.is_ducking:
+                self._execute_jump()
+                self.jump_buffer_timer = 0
         else:
             self.is_on_ground = False
     
     def update(self):
-        """Cập nhật trạng thái player mỗi frame."""
+        """Cập nhật physics, logic kiểm tra và hoạt ảnh."""
+        if self.is_dead:
+            self.animation_state = 'dead'
+            return # KHÓA toàn bộ di chuyển khi đã chết
+            
+        # --- TIMER UPDATES ---dần
+        if self.jump_buffer_timer > 0:
+            self.jump_buffer_timer -= 1
+            
         # Gravity
         self.apply_gravity()
         
@@ -124,67 +199,74 @@ class Player:
             if self.dash_cooldown_timer <= 0:
                 self.can_dash = True
         
+        # --- ANIMATION LOGIC ---
+        # 1. Cập nhật trạng thái
+        if self.is_dashing:
+            self.animation_state = 'dash'
+        elif self.vel_y < 0:
+            self.animation_state = 'jump'
+        elif self.vel_y > 0 and not self.is_on_ground:
+            self.animation_state = 'fall'
+        elif self.is_on_ground:
+            if self.is_ducking:
+                self.animation_state = 'duck'
+            else:
+                self.animation_state = 'run'
+                
+        # 2. Chuyển frame liên tục
+        current_time = pygame.time.get_ticks()
+        if current_time - self.update_time > settings.ANIMATION_COOLDOWN:
+            self.update_time = current_time
+            self.frame_index += 1
+            # Tránh lỗi văng Index khi danh sách rỗng (nên đã lo liệu)
+            if self.frame_index >= len(self.animations[self.animation_state]):
+                self.frame_index = 0
+                
         # Cập nhật hitbox
         self.rect.update(self.x, self.y, self.width, self.height)
     
     def draw(self, screen):
-        """
-        Vẽ player lên màn hình.
-        Ban đầu dùng hình chữ nhật placeholder, sau thay bằng sprite.
-        
-        Args:
-            screen: pygame.Surface - màn hình game
-        """
+        """Vẽ player (sprite) lên màn hình."""
         if self.is_dashing:
-            # Vẽ hiệu ứng dash (hơi trong suốt + trail)
             self._draw_dash_effect(screen)
+            
+        # Kiểm tra kĩ index trước khi vẽ
+        if self.frame_index >= len(self.animations[self.animation_state]):
+            self.frame_index = 0
+        current_image = self.animations[self.animation_state][self.frame_index]
         
-        # Thân knight (hình chữ nhật chính)
-        body_color = settings.COLOR_PLAYER
-        pygame.draw.rect(screen, body_color, self.rect, border_radius=4)
+        # Căn hình vào giữa dưới (midbottom) của hitbox thay vì dùng x, y mặc định
+        image_rect = current_image.get_rect(midbottom=self.rect.midbottom)
         
-        # Phần mũ giáp (visor) - phần trên
-        visor_height = 15 if not self.is_ducking else 10
-        visor_rect = pygame.Rect(
-            self.x, self.y,
-            self.width, visor_height
-        )
-        pygame.draw.rect(screen, settings.COLOR_PLAYER_VISOR, visor_rect, border_radius=4)
+        # Vẽ nhân vật
+        screen.blit(current_image, image_rect)
         
-        # Vẽ mắt (2 chấm nhỏ)
-        eye_y = self.y + (8 if not self.is_ducking else 5)
-        pygame.draw.circle(screen, settings.COLOR_WHITE, (self.x + 30, eye_y), 3)
-        pygame.draw.circle(screen, settings.COLOR_WHITE, (self.x + 40, eye_y), 3)
+        # Nếu muốn thấy hitbox (để dễ thiết kế), thêm hashtag '#' để xoá dòng này
+        # pygame.draw.rect(screen, settings.COLOR_BLACK, self.rect, 1)
         
-        # Viền outline
-        pygame.draw.rect(screen, settings.COLOR_BLACK, self.rect, 2, border_radius=4)
-        
-        # Indicator trạng thái
-        if self.is_ducking:
-            # Vẽ mũi tên xuống nhỏ
-            arrow_x = self.x + self.width // 2
-            arrow_y = self.y - 10
-            pygame.draw.polygon(screen, settings.COLOR_SCORE, [
-                (arrow_x - 5, arrow_y - 5),
-                (arrow_x + 5, arrow_y - 5),
-                (arrow_x, arrow_y + 2)
-            ])
-        
-        # Cooldown indicator cho dash
+        # Vẽ Cooldown indicator cho phép lướt (dash)
         if not self.can_dash:
             cooldown_ratio = self.dash_cooldown_timer / settings.DASH_COOLDOWN
             bar_width = self.width * (1 - cooldown_ratio)
-            bar_rect = pygame.Rect(self.x, self.y - 8, bar_width, 4)
+            bar_rect = pygame.Rect(self.x, self.y - 12, bar_width, 4)
             pygame.draw.rect(screen, settings.COLOR_SCORE, bar_rect)
-    
+            
     def _draw_dash_effect(self, screen):
-        """Vẽ hiệu ứng afterimage khi dash."""
+        """Vẽ hiệu ứng afterimage khi dash bằng sprite."""
+        # Chỉ vẽ hiệu ứng mờ nhân bản khi đang ở trạng thái dash tránh lỗi văng index
+        if self.animation_state != 'dash' or self.frame_index >= len(self.animations['dash']):
+            return
+            
+        current_image = self.animations['dash'][self.frame_index].copy()
         for i in range(3):
-            alpha = 40 - (i * 12)
-            trail_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-            trail_surface.fill((*settings.COLOR_PLAYER, max(alpha, 0)))
+            # Tạo hiệu ứng mờ dần
+            alpha = max(100 - (i * 30), 0)
+            current_image.set_alpha(alpha)
+            
             trail_x = self.x - (i + 1) * 15
-            screen.blit(trail_surface, (trail_x, self.y))
+            image_rect = current_image.get_rect(midbottom=self.rect.midbottom)
+            image_rect.x = trail_x
+            screen.blit(current_image, image_rect)
     
     def get_rect(self):
         """
@@ -202,7 +284,6 @@ class Player:
             self.rect.height - shrink * 2
         )
     
-    def reset(self):
         """Reset player về trạng thái ban đầu (khi chơi lại)."""
         self.y = settings.GROUND_Y - settings.PLAYER_HEIGHT
         self.height = settings.PLAYER_HEIGHT
@@ -210,8 +291,12 @@ class Player:
         self.vel_y = 0
         self.is_on_ground = True
         self.jump_count = 0
+        self.jump_buffer_timer = 0
+        self.is_ducking = False
         self.is_ducking = False
         self.is_dashing = False
+        self.is_dead = False
+        
         self.dash_timer = 0
         self.dash_cooldown_timer = 0
         self.can_dash = True

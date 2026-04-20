@@ -13,7 +13,7 @@ from utils.score_manager import save_highscore
 class GameOverState:
     """Trạng thái Game Over."""
     
-    def __init__(self, game_manager, final_score, previous_highscore):
+    def __init__(self, game_manager, final_score, previous_highscore, bg_snapshot=None):
         """
         Khởi tạo game over state.
         
@@ -21,9 +21,11 @@ class GameOverState:
             game_manager: Reference đến GameManager
             final_score: Điểm số cuối cùng
             previous_highscore: Highscore trước khi game over
+            bg_snapshot: Hình chụp nền game hiện tại
         """
         self.game_manager = game_manager
         self.screen = game_manager.screen
+        self.bg_snapshot = bg_snapshot
         
         self.final_score = int(final_score)
         self.previous_highscore = int(previous_highscore)
@@ -110,6 +112,10 @@ class GameOverState:
     
     def draw(self):
         """Vẽ màn hình game over."""
+        # Vẽ màn hình cũ làm nền
+        if self.bg_snapshot:
+            self.screen.blit(self.bg_snapshot, (0, 0))
+            
         # Overlay tối bán trong suốt (không xóa nền, tạo hiệu ứng dim)
         overlay = pygame.Surface(
             (settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), pygame.SRCALPHA

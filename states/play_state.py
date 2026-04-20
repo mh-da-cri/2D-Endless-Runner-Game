@@ -48,6 +48,7 @@ class PlayState:
         
         # Flags
         self.is_paused = False
+        self.hit_stop_timer = 0
     
     def handle_events(self, events):
         """
@@ -82,6 +83,13 @@ class PlayState:
         """Cập nhật logic game mỗi frame."""
         if self.is_paused:
             return
+            
+        # --- Hit-stop Freeze Logic ---
+        if self.player.is_dead:
+            self.hit_stop_timer -= 1
+            if self.hit_stop_timer <= 0:
+                self._game_over()
+            return # Đóng băng không cập nhật physics/cuộn cảnh
         
         # --- Cập nhật game speed (tăng dần) ---
         if self.game_speed < settings.MAX_GAME_SPEED:
@@ -116,8 +124,9 @@ class PlayState:
                 if self.player.is_dashing:
                     continue
                 
-                # GAME OVER
-                self._game_over()
+                # GAME OVER (Bắt đầu hit-stop)
+                self.player.is_dead = True
+                self.hit_stop_timer = settings.HIT_STOP_FRAMES
                 return
         
         # --- Cập nhật score ---
@@ -161,6 +170,9 @@ class PlayState:
     def _game_over(self):
         """Xử lý khi game over."""
         from states.gameover_state import GameOverState
+        # Chụp màn hình hiện tại để làm nền lúc game over
+        bg_snapshot = self.screen.copy()
+        
         self.game_manager.change_state(
-            GameOverState(self.game_manager, self.score, self.highscore)
+            GameOverState(self.game_manager, self.score, self.highscore, bg_snapshot)
         )

@@ -22,17 +22,28 @@ GROUND_HEIGHT = 100           # Chiều cao phần mặt đất vẽ bên dướ
 # PLAYER / NHÂN VẬT (Knight)
 # ============================================================
 PLAYER_START_X = 150          # Vị trí X cố định của player
-PLAYER_WIDTH = 50             # Chiều rộng hitbox bình thường
-PLAYER_HEIGHT = 80            # Chiều cao hitbox bình thường
-PLAYER_DUCK_HEIGHT = 40       # Chiều cao hitbox khi cúi
+PLAYER_WIDTH = 25             # Chiều rộng hitbox bình thường
+PLAYER_HEIGHT = 55            # Chiều cao hitbox bình thường
+PLAYER_DUCK_HEIGHT = 35       # Chiều cao hitbox khi cúi
+
+# Sprite Configuration cho blastalot-wings-alpha.png
+SPRITE_IMAGE = "blastalot-wings-alpha.png"
+SPRITE_CROUCH_IMAGE = "blastalot-wings-crouch-alpha.png"
+SPRITE_DEAD_IMAGE = "dead status.png"
+SPRITE_FRAME_WIDTH = 44
+SPRITE_FRAME_HEIGHT = 48
+SPRITE_SCALE = 1.3
+ANIMATION_COOLDOWN = 100      # Thời gian chuyển frame (ms)
+HIT_STOP_FRAMES = 15          # Thời gian khựng hình khi đâm quái (frames) ~0.25 giây
 
 JUMP_FORCE = -15              # Lực nhảy lần 1 (âm = đi lên)
 DOUBLE_JUMP_FORCE = -13       # Lực nhảy lần 2 (yếu hơn một chút)
 MAX_JUMPS = 2                 # Số lần nhảy tối đa (double jump)
+JUMP_BUFFER_FRAMES = 9        # Thời gian nhớ phím nhảy trước khi chạm đất (frames) ~0.15s
 
 DASH_SPEED = 12               # Tốc độ dash (pixels/frame)
-DASH_DURATION = 12            # Thời gian dash (frames) ≈ 0.2 giây
-DASH_COOLDOWN = 90            # Cooldown giữa các lần dash (frames) ≈ 1.5 giây
+DASH_DURATION = 45            # Thời gian dash (frames) = 0.75 giây (60 FPS)
+DASH_COOLDOWN = 180           # Cooldown giữa các lần dash (frames) = 3.0 giây
 
 DUCK_SPEED_BONUS = 1          # Bonus tốc độ khi cúi (player hơi trượt nhanh hơn)
 

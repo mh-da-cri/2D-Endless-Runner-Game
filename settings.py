@@ -3,6 +3,8 @@ Settings - Cấu hình tập trung cho game Endless Runner
 Chứa tất cả hằng số, thông số game có thể điều chỉnh.
 """
 
+import pygame
+
 # ============================================================
 # SCREEN / MÀN HÌNH
 # ============================================================
@@ -23,18 +25,71 @@ GROUND_HEIGHT = 100           # Chiều cao phần mặt đất vẽ bên dướ
 # ============================================================
 PLAYER_START_X = 150          # Vị trí X cố định của player
 PLAYER_WIDTH = 50             # Chiều rộng hitbox bình thường
-PLAYER_HEIGHT = 80            # Chiều cao hitbox bình thường
-PLAYER_DUCK_HEIGHT = 40       # Chiều cao hitbox khi cúi
+PLAYER_HEIGHT = 100           # Chiều cao hitbox bình thường (~88% visual 120px)
+PLAYER_DUCK_HEIGHT = 65       # Chiều cao hitbox khi cúi (~64% standing)
+
+# Sprite Configuration cho blastalot-wings-alpha.png
+SPRITE_IMAGE = "blastalot-wings-alpha.png"
+SPRITE_CROUCH_IMAGE = "blastalot-wings-crouch-alpha.png"
+SPRITE_DEAD_IMAGE = "dead status.png"
+SPRITE_FRAME_WIDTH = 44
+SPRITE_FRAME_HEIGHT = 48
+SPRITE_SCALE = 2.5             # ≈120px visual (1.5× obstacle max 80px)
+ANIMATION_COOLDOWN = 100      # Thời gian chuyển frame (ms)
+HIT_STOP_FRAMES = 45          # Thời gian khựng hình khi đâm quái (frames) ~0.75 giây
+
+# Sprite Configuration cho sorlosheet.png (Sorcerer)
+SORCERER_SPRITE_IMAGE = "sorlosheet.png"
+SORCERER_SPRITE_SCALE = 1.58   # ≈120px visual (1.5× obstacle max 80px)
+SORCERER_ANIMATION_COOLDOWN = 120
+SORCERER_SKILL_CAST_FRAMES = 30
+SORCERER_FIREBALL_RELEASE_DELAY = 14
+SORCERER_FIREBALL_SPAWN_X_OFFSET = 50
+SORCERER_FIREBALL_SPAWN_Y_OFFSET = 60  # Hạ xuống gần mặt đất để trúng quái thấp
+SORCERER_SHEET_COLORKEY = (128, 128, 128)
 
 JUMP_FORCE = -15              # Lực nhảy lần 1 (âm = đi lên)
 DOUBLE_JUMP_FORCE = -13       # Lực nhảy lần 2 (yếu hơn một chút)
 MAX_JUMPS = 2                 # Số lần nhảy tối đa (double jump)
+JUMP_BUFFER_FRAMES = 9        # Thời gian nhớ phím nhảy trước khi chạm đất (frames) ~0.15s
 
-DASH_SPEED = 12               # Tốc độ dash (pixels/frame)
-DASH_DURATION = 12            # Thời gian dash (frames) ≈ 0.2 giây
-DASH_COOLDOWN = 90            # Cooldown giữa các lần dash (frames) ≈ 1.5 giây
+DASH_DURATION = 45            # Thời gian dash (frames) = 0.75 giây (60 FPS)
+DASH_COOLDOWN = 180           # Cooldown giữa các lần dash (frames) = 3.0 giây
+# Ghi chú: Hệ số tốc độ khi dash = 1.5x tốc độ game hiện tại (xem play_state.py)
 
 DUCK_SPEED_BONUS = 1          # Bonus tốc độ khi cúi (player hơi trượt nhanh hơn)
+
+# ============================================================
+# HP SYSTEM / HỆ THỐNG MÁU
+# ============================================================
+PLAYER_MAX_HP = 3             # Số máu tối đa
+INVINCIBILITY_FRAMES = 120    # 2 giây bất tử sau khi bị đánh (60 FPS)
+
+# ============================================================
+# CHARACTER TYPES / LOẠI NHÂN VẬT
+# ============================================================
+CHARACTER_KNIGHT = "knight"
+CHARACTER_SORCERER = "sorcerer"
+CHARACTER_PRIEST = "priest"
+
+# ============================================================
+# SKILL SYSTEM / HỆ THỐNG KỸ NĂNG
+# ============================================================
+SKILL_KEY = pygame.K_1        # Phím 1 để dùng skill
+
+# Knight - Khiên bảo vệ
+SKILL_KNIGHT_DURATION = 600   # Thời lượng khiên: 10 giây (10 * 60 frames)
+SKILL_KNIGHT_COOLDOWN = 1800  # Cooldown: 30 giây (30 * 60 frames) - tính SAU KHI khiên hết
+
+# Sorcerer - Cầu lửa (bắn tuần tự)
+SKILL_SORCERER_COOLDOWN = 300 # Cooldown: 5 giây (5 * 60 frames)
+FIREBALL_SPEED = 10           # Tốc độ bay của fireball
+FIREBALL_COUNT = 3            # Số quả cầu lửa mỗi lần bắn
+FIREBALL_SIZE = 22            # Bán kính fireball (vẽ + hitbox)
+FIREBALL_FIRE_INTERVAL = 30   # 0.5 giây giữa mỗi viên đạn
+
+# Priest - Hồi máu
+SKILL_PRIEST_COOLDOWN = 1800  # Cooldown: 30 giây (30 * 60 frames)
 
 # ============================================================
 # OBSTACLES / CHƯỚNG NGẠI VẬT
@@ -50,16 +105,28 @@ FLYING_OBSTACLE_Y_MAX = 560   # Vị trí Y tối đa (thấp nhất) của obst
 FLYING_OBSTACLE_WIDTH = 50
 FLYING_OBSTACLE_HEIGHT = 40
 
-# Spawn timing
-MIN_SPAWN_DELAY = 60          # Delay tối thiểu giữa các obstacle (frames)
+# Thời gian spawn (giãn cách rộng hơn)
+MIN_SPAWN_DELAY = 90          # Delay tối thiểu giữa các obstacle (frames)
 MAX_SPAWN_DELAY = 150         # Delay tối đa giữa các obstacle (frames)
+
+# ============================================================
+# POWER-UPS / VẬT PHẨM TĂNG SỨC MẠNH
+# ============================================================
+POWERUP_SIZE = 30
+POWERUP_DURATION = 300        # Hiệu lực 5 giây (ở 60 FPS)
+
+MIN_POWERUP_SPAWN_DELAY = 600   # Khoảng 10s
+MAX_POWERUP_SPAWN_DELAY = 1200  # Khoảng 20s
+
+POWERUP_SPEED_MULTIPLIER = 1.3  # Tăng 30% tốc độ
+POWERUP_JUMP_MULTIPLIER = 1.2   # Tăng 20% lực nhảy
 
 # ============================================================
 # GAME SPEED / TỐC ĐỘ GAME
 # ============================================================
 INITIAL_GAME_SPEED = 6        # Tốc độ cuộn ban đầu
 MAX_GAME_SPEED = 18           # Tốc độ tối đa
-SPEED_INCREMENT = 0.002       # Tăng tốc mỗi frame
+SPEED_INCREMENT = 0.001       # Tăng tốc mỗi frame (chậm hơn để dễ chơi)
 
 # ============================================================
 # SCORING / ĐIỂM SỐ
@@ -97,6 +164,41 @@ COLOR_GAMEOVER = (200, 50, 50)        # Game Over - đỏ
 COLOR_HUD_BG = (0, 0, 0, 120)        # Nền HUD bán trong suốt
 COLOR_WHITE = (255, 255, 255)
 COLOR_BLACK = (0, 0, 0)
+COLOR_POWERUP_SHIELD = (100, 200, 255) # Xanh dương nhạt (bất tử)
+COLOR_POWERUP_SCORE = (255, 215, 0)    # Vàng gold (nhân đôi điểm)
+COLOR_POWERUP_SLOW = (100, 255, 100)   # Xanh lá (giảm tốc)
+COLOR_POWERUP_SPEED = (255, 120, 50)   # Cam đỏ (tăng tốc)
+COLOR_POWERUP_JUMP = (255, 100, 255)   # Hồng/Tím (nhảy cao)
+
+# Nhân vật mới
+COLOR_SORCERER = (120, 60, 180)        # Pháp sư - tím đậm (áo choàng)
+COLOR_SORCERER_HAT = (80, 40, 140)     # Mũ phù thủy - tím tối
+COLOR_SORCERER_ACCENT = (200, 150, 255) # Điểm nhấn sáng
+COLOR_PRIEST = (240, 230, 210)         # Nữ tu - trắng kem (áo tu)
+COLOR_PRIEST_HOOD = (200, 190, 170)    # Mũ hood - kem tối
+COLOR_PRIEST_ACCENT = (255, 220, 120)  # Vàng nhạt (thánh giá)
+
+# Skill colors
+COLOR_FIREBALL = (255, 120, 30)        # Cam đỏ (lửa)
+COLOR_FIREBALL_CORE = (255, 230, 80)   # Lõi vàng sáng
+COLOR_SHIELD_SKILL = (80, 180, 255)    # Xanh dương (khiên skill)
+COLOR_HEAL = (100, 255, 150)           # Xanh lá nhạt (hồi máu)
+COLOR_HP_FULL = (220, 50, 50)          # Đỏ (trái tim đầy)
+COLOR_HP_EMPTY = (60, 30, 30)          # Nền trái tim trống
+COLOR_SKILL_READY = (100, 255, 200)    # Skill sẵn sàng
+COLOR_SKILL_COOLDOWN = (100, 100, 100) # Skill đang hồi
+COLOR_COMPANION_PICKUP = (255, 200, 80)     # Quả cầu vàng
+COLOR_COMPANION_PICKUP_GLOW = (255, 230, 150) # Hào quang vàng
+
+# ============================================================
+# HỆ THỐNG ĐỒNG HÀNH
+# ============================================================
+COMPANION_SCORE_MILESTONES = [200, 500]  # Mốc điểm xuất hiện item đồng hành
+COMPANION_SCALE = 0.8                    # Tỉ lệ kích thước đồng hành (80%)
+COMPANION_OFFSET_X = -45                 # Khoảng cách X đồng hành sau lưng player
+COMPANION_PICKUP_SIZE = 35               # Kích thước item đồng hành
+SKILL_KEY_COMPANION_1 = pygame.K_2       # Phím 2 cho đồng hành thứ 1
+SKILL_KEY_COMPANION_2 = pygame.K_3       # Phím 3 cho đồng hành thứ 2
 
 # ============================================================
 # UI / GIAO DIỆN

@@ -6,7 +6,7 @@ Hiển thị điểm số, highscore, và các nút chơi lại / về menu.
 import pygame
 import sys
 import settings
-from utils.asset_loader import load_font
+from utils.asset_loader import load_font, load_sound, play_sound
 from utils.score_manager import save_highscore
 
 
@@ -65,6 +65,7 @@ class GameOverState:
         # Animation
         self.frame_count = 0
         self.fade_alpha = 0  # Fade in effect
+        self.click_sound = load_sound(settings.UI_CLICK_SOUND)
     
     def handle_events(self, events):
         """
@@ -85,11 +86,13 @@ class GameOverState:
             
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.retry_hovered:
+                    play_sound(self.click_sound, volume=0.5)
                     # Chơi lại - quay về chọn nhân vật
                     from states.character_select_state import CharacterSelectState
                     self.game_manager.change_state(CharacterSelectState(self.game_manager))
                 
                 elif self.menu_hovered:
+                    play_sound(self.click_sound, volume=0.5)
                     # Về menu
                     from states.menu_state import MenuState
                     self.game_manager.change_state(MenuState(self.game_manager))

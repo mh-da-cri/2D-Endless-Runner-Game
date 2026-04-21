@@ -8,7 +8,7 @@ import sys
 import math
 import random
 import settings
-from utils.asset_loader import load_font
+from utils.asset_loader import load_font, load_sound, play_sound
 
 
 class CharacterSelectState:
@@ -96,11 +96,13 @@ class CharacterSelectState:
         
         # Load sprite previews cho Knight và Sorcerer
         self._load_preview_sprites()
+        self.click_sound = load_sound(settings.UI_CLICK_SOUND)
     
     def _load_preview_sprites(self):
         """Load sprite frame idle dùng cho preview trong card chọn nhân vật."""
         self.knight_preview = None
         self.sorcerer_preview = None
+        self.priest_preview = None
         target_h = 115  # Chiều cao hiển thị trong card
         
         # Knight - idle frame (cột 0, hàng 0)
@@ -111,6 +113,49 @@ class CharacterSelectState:
             knight_img = load_image(settings.SPRITE_IMAGE, convert_alpha=True)
             knight_sheet = SpriteSheet(knight_img)
             self.knight_preview = knight_sheet.get_image(0, 0, w, h, target_h / h)
+        except Exception:
+            pass
+
+        # Priest - idle frame Ä‘áº§u tiÃªn trong Priest.png
+        try:
+            from utils.spritesheet import SpriteSheet
+            from utils.asset_loader import load_image
+            priest_img = load_image(settings.PRIEST_SPRITE_IMAGE, convert_alpha=True)
+            priest_sheet = SpriteSheet(priest_img)
+            key = settings.PRIEST_SHEET_COLORKEY
+            inset = 2
+            x, y, w, h = 33, 67, 120, 106
+            frame = priest_sheet.get_image_at(x + inset, y + inset, w - inset * 2, h - inset * 2, 1)
+            frame = frame.copy().convert_alpha()
+            kr, kg, kb = key
+            for y_px in range(frame.get_height()):
+                for x_px in range(frame.get_width()):
+                    r, g, b, a = frame.get_at((x_px, y_px))
+                    if abs(r - kr) <= 3 and abs(g - kg) <= 3 and abs(b - kb) <= 3:
+                        frame.set_at((x_px, y_px), (r, g, b, 0))
+            stack = []
+            visited = set()
+            fw, fh = frame.get_size()
+            for edge_x in range(fw):
+                stack.extend([(edge_x, 0), (edge_x, fh - 1)])
+            for edge_y in range(fh):
+                stack.extend([(0, edge_y), (fw - 1, edge_y)])
+            while stack:
+                px, py = stack.pop()
+                if (px, py) in visited or px < 0 or py < 0 or px >= fw or py >= fh:
+                    continue
+                visited.add((px, py))
+                r, g, b, a = frame.get_at((px, py))
+                if a == 0:
+                    continue
+                if abs(r - kr) > 10 or abs(g - kg) > 10 or abs(b - kb) > 10:
+                    continue
+                frame.set_at((px, py), (r, g, b, 0))
+                stack.extend([(px + 1, py), (px - 1, py), (px, py + 1), (px, py - 1)])
+            scale = target_h / frame.get_height()
+            self.priest_preview = pygame.transform.scale(
+                frame, (int(frame.get_width() * scale), target_h)
+            )
         except Exception:
             pass
         
@@ -159,9 +204,11 @@ class CharacterSelectState:
             
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.hovered_card >= 0:
+                    play_sound(self.click_sound, volume=0.5)
                     self._select_character(self.hovered_card)
                 
                 elif self.back_hovered:
+                    play_sound(self.click_sound, volume=0.5)
                     from states.menu_state import MenuState
                     self.game_manager.change_state(MenuState(self.game_manager))
             
@@ -326,6 +373,11 @@ class CharacterSelectState:
             self.screen.blit(self.sorcerer_preview, img_rect)
             return
         
+        if char_type == settings.CHARACTER_PRIEST and self.priest_preview:
+            img_rect = self.priest_preview.get_rect(center=(int(cx), int(cy)))
+            self.screen.blit(self.priest_preview, img_rect)
+            return
+
         # Fallback placeholder (Priest + khi sprite lỗi)
         cy = int(cy)
         w, h = 40, 60

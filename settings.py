@@ -32,6 +32,12 @@ PLAYER_DUCK_HEIGHT = 65       # Chiều cao hitbox khi cúi (~64% standing)
 SPRITE_IMAGE = "blastalot-wings-alpha.png"
 SPRITE_CROUCH_IMAGE = "blastalot-wings-crouch-alpha.png"
 SPRITE_DEAD_IMAGE = "dead status.png"
+SHIELD_SPRITE_IMAGE = "spr_shield.png"
+SHIELD_SOUND = "space shield sounds - 2.wav"
+PRIEST_HEAL_SOUND = "healspell2.aif"
+SORCERER_SKILL_SOUND = "Magic Missiles.wav"
+POWERUP_PICKUP_SOUND = "itempickup.mp3"
+UI_CLICK_SOUND = "Selection Click.wav"
 SPRITE_FRAME_WIDTH = 44
 SPRITE_FRAME_HEIGHT = 48
 SPRITE_SCALE = 2.5             # ≈120px visual (1.5× obstacle max 80px)
@@ -47,6 +53,14 @@ SORCERER_FIREBALL_RELEASE_DELAY = 14
 SORCERER_FIREBALL_SPAWN_X_OFFSET = 50
 SORCERER_FIREBALL_SPAWN_Y_OFFSET = 60  # Hạ xuống gần mặt đất để trúng quái thấp
 SORCERER_SHEET_COLORKEY = (128, 128, 128)
+
+# Sprite Configuration cho Priest
+PRIEST_SPRITE_IMAGE = "Priest.png"
+PRIEST_SKILLS_IMAGE = "Priest-skills.png"
+PRIEST_SPRITE_SCALE = 1.0
+PRIEST_ANIMATION_COOLDOWN = 95
+PRIEST_SKILL_CAST_FRAMES = 40
+PRIEST_SHEET_COLORKEY = (85, 85, 85)
 
 JUMP_FORCE = -15              # Lực nhảy lần 1 (âm = đi lên)
 DOUBLE_JUMP_FORCE = -13       # Lực nhảy lần 2 (yếu hơn một chút)

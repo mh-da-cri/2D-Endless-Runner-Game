@@ -569,10 +569,10 @@ class Player:
             return settings.SKILL_PRIEST_COOLDOWN
         return 0
     
-    def take_damage(self):
+    def take_damage(self, amount=1):
         """
         Nhận sát thương.
-        Giảm 1 HP và kích hoạt invincibility frames.
+        Giảm HP và kích hoạt invincibility frames.
         
         Returns:
             bool: True nếu nhân vật chết (HP <= 0)
@@ -590,7 +590,7 @@ class Player:
             return False
         
         # Nhận sát thương
-        self.hp -= 1
+        self.hp -= amount
         
         if self.hp <= 0:
             return True  # Chết

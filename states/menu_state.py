@@ -20,6 +20,13 @@ class MenuState:
         Args:
             game_manager: Reference đến GameManager để chuyển state
         """
+        # --- RELOAD ANTI-CORRUPTION ---
+        # Đảm bảo mỗi lần về Menu, game lấy lại setting nguyên thủy
+        import importlib
+        import settings
+        importlib.reload(settings)
+        # -----------------------------
+        
         self.game_manager = game_manager
         self.screen = game_manager.screen
         
@@ -34,20 +41,28 @@ class MenuState:
         
         self.play_button = pygame.Rect(
             center_x - settings.BUTTON_WIDTH // 2,
-            center_y + 20,
+            center_y,
+            settings.BUTTON_WIDTH,
+            settings.BUTTON_HEIGHT
+        )
+        
+        self.admin_button = pygame.Rect(
+            center_x - settings.BUTTON_WIDTH // 2,
+            center_y + settings.BUTTON_HEIGHT + 15,
             settings.BUTTON_WIDTH,
             settings.BUTTON_HEIGHT
         )
         
         self.exit_button = pygame.Rect(
             center_x - settings.BUTTON_WIDTH // 2,
-            center_y + 20 + settings.BUTTON_HEIGHT + 20,
+            center_y + (settings.BUTTON_HEIGHT + 15) * 2,
             settings.BUTTON_WIDTH,
             settings.BUTTON_HEIGHT
         )
         
         # Hover state
         self.play_hovered = False
+        self.admin_hovered = False
         self.exit_hovered = False
         
         # Animation
@@ -69,6 +84,7 @@ class MenuState:
         
         # Kiểm tra hover
         self.play_hovered = self.play_button.collidepoint(mouse_pos)
+        self.admin_hovered = self.admin_button.collidepoint(mouse_pos)
         self.exit_hovered = self.exit_button.collidepoint(mouse_pos)
         
         for event in events:
@@ -82,6 +98,11 @@ class MenuState:
                     from states.character_select_state import CharacterSelectState
                     self.game_manager.change_state(CharacterSelectState(self.game_manager))
                 
+                elif self.admin_hovered:
+                    # Chuyển tới UI Admin Config
+                    from states.admin_config_state import AdminConfigState
+                    self.game_manager.change_state(AdminConfigState(self.game_manager))
+                    
                 elif self.exit_hovered:
                     pygame.quit()
                     sys.exit()
@@ -136,15 +157,10 @@ class MenuState:
             hs_rect = hs_text.get_rect(center=(settings.SCREEN_WIDTH // 2, self.play_button.top - 50))
             self.screen.blit(hs_text, hs_rect)
         
-        # === Play Button ===
-        self._draw_button(
-            self.play_button, "Play", self.play_hovered
-        )
-        
-        # === Exit Button ===
-        self._draw_button(
-            self.exit_button, "Exit", self.exit_hovered
-        )
+        # === Buttons ===
+        self._draw_button(self.play_button, "Play", self.play_hovered)
+        self._draw_button(self.admin_button, "Admin Mode", self.admin_hovered)
+        self._draw_button(self.exit_button, "Exit", self.exit_hovered)
         
         # === Footer ===
         footer_font = load_font(18)

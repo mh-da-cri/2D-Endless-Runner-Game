@@ -5,6 +5,7 @@ Hỗ trợ HP system, skill, fireball tuần tự, đồng hành, powerups, paus
 """
 
 import random
+import math
 import pygame
 import sys
 import settings
@@ -54,6 +55,7 @@ class PlayState:
         # Fireballs & queue bắn tuần tự
         self.fireballs = []
         self.fireball_queue = []  # [{source, count, timer}, ...]
+        self.bullet_explosions = [] # [{'x', 'y', 'radius', 'life', 'color'}]
         
         # Đồng hành
         self.companions = []
@@ -70,6 +72,17 @@ class PlayState:
         self.hit_stop_timer = 0
         self.death_snapshot = None    # Snapshot màn hình lúc xác chết
         self.pending_game_over = False  # Flag chờ chuyển sang GameOver
+        
+        # Boss system
+        self.boss = None
+        self.boss_fight_active = False
+        self.boss_defeated_count = 0
+        self.boss_bullets = []
+        self.counter_shield_pickups = []
+        self.counter_shield_spawn_timer = 0
+        self.next_counter_shield_delay = 0
+        self.player_has_counter = False
+        self.counter_shield_timer = 0
     
     def handle_events(self, events):
         """
@@ -202,7 +215,7 @@ class PlayState:
             return  # Đóng băng - không cập nhật physics/cuộn cảnh
         
         # --- Cập nhật game speed ---
-        if self.game_speed < settings.MAX_GAME_SPEED:
+        if not self.boss_fight_active and self.game_speed < settings.MAX_GAME_SPEED:
             self.game_speed += settings.SPEED_INCREMENT
         
         # Tốc độ thực tế (có tính dash speed cho obstacles & powerups)
@@ -243,6 +256,13 @@ class PlayState:
             fb.update()
         self.fireballs = [fb for fb in self.fireballs if getattr(fb, 'alive', True) and not fb.is_off_screen()]
         
+        # --- Cập nhật hiệu ứng nổ đạn ---
+        for exp in self.bullet_explosions[:]:
+            exp['life'] -= 1
+            exp['radius'] += 1.5
+            if exp['life'] <= 0:
+                self.bullet_explosions.remove(exp)
+        
         # --- Xử lý hàng đợi bắn fireball tuần tự ---
         for fq in self.fireball_queue[:]:
             fq['timer'] -= 1
@@ -262,27 +282,77 @@ class PlayState:
             if fq['count'] <= 0:
                 self.fireball_queue.remove(fq)
         
-        # --- Spawn obstacles ---
-        self.spawn_timer += 1
-        if self.player.is_dashing:
-            self.spawn_timer += 0.5  # Bù thêm 0.5 tương ứng với hệ số dash 1.5x
-            
-        if self.spawn_timer >= self.next_spawn_delay:
-            self._spawn_obstacle()
-            self.spawn_timer = 0
-            speed_factor = active_speed / settings.INITIAL_GAME_SPEED
-            min_delay = max(45, int(settings.MIN_SPAWN_DELAY / speed_factor))
-            max_delay = max(90, int(settings.MAX_SPAWN_DELAY / speed_factor))
-            self.next_spawn_delay = random.randint(min_delay, max_delay)
+        # --- Cập nhật Counter Shield cho Player ---
+        if self.player_has_counter:
+            self.counter_shield_timer -= 1
+            if self.counter_shield_timer <= 0:
+                self.player_has_counter = False
+
+        # --- Boss Logic ---
+        # Kiểm tra spawn boss
+        if not self.boss_fight_active and self.boss_defeated_count == 0 and self.score >= settings.BOSS_FIRST_SCORE:
+            self.boss_fight_active = True
+            self.obstacles.clear()  # Xoá quái cũ để nhường chỗ cho boss
+            self.game_speed = settings.INITIAL_GAME_SPEED  # Trả tốc độ về ban đầu để không bị chóng mặt
+            try:
+                from entities.boss import Boss
+                self.boss = Boss()
+            except ImportError:
+                pass
         
-        # --- Spawn powerups ---
-        self.powerup_spawn_timer += 1
-        if self.powerup_spawn_timer >= self.next_powerup_spawn_delay:
-            self._spawn_powerup()
-            self.powerup_spawn_timer = 0
-            self.next_powerup_spawn_delay = random.randint(
-                settings.MIN_POWERUP_SPAWN_DELAY, settings.MAX_POWERUP_SPAWN_DELAY
-            )
+        if self.boss_fight_active and self.boss:
+            self.boss.update()
+            
+            # Spawn bullet patterns
+            self.boss.pattern_timer -= 1
+            if self.boss.pattern_timer <= 0:
+                new_bullets = self.boss.get_next_pattern()
+                self.boss_bullets.extend(new_bullets)
+                self.boss.pattern_timer = settings.BOSS_PATTERN_INTERVAL
+                
+            # Cập nhật đạn boss
+            for bullet in self.boss_bullets:
+                bullet.update()
+            self.boss_bullets = [b for b in self.boss_bullets if not b.is_off_screen()]
+            
+            # Spawn Counter Shield item
+            self.counter_shield_spawn_timer += 1
+            if self.counter_shield_spawn_timer >= self.next_counter_shield_delay:
+                self.counter_shield_spawn_timer = 0
+                self.next_counter_shield_delay = random.randint(settings.COUNTER_SHIELD_SPAWN_MIN, settings.COUNTER_SHIELD_SPAWN_MAX)
+                try:
+                    from entities.counter_shield_pickup import CounterShieldPickup
+                    self.counter_shield_pickups.append(CounterShieldPickup(self.game_speed))
+                except ImportError:
+                    pass
+                    
+            # Cập nhật Counter Shield item
+            for shield in self.counter_shield_pickups:
+                shield.update(self.game_speed)
+            self.counter_shield_pickups = [s for s in self.counter_shield_pickups if not s.is_off_screen()]
+
+        # --- Spawn obstacles ---
+        if not self.boss_fight_active:
+            self.spawn_timer += 1
+            if self.player.is_dashing:
+                self.spawn_timer += 0.5  # Bù thêm 0.5 tương ứng với hệ số dash 1.5x
+                
+            if self.spawn_timer >= self.next_spawn_delay:
+                self._spawn_obstacle()
+                self.spawn_timer = 0
+                speed_factor = active_speed / settings.INITIAL_GAME_SPEED
+                min_delay = max(45, int(settings.MIN_SPAWN_DELAY / speed_factor))
+                max_delay = max(90, int(settings.MAX_SPAWN_DELAY / speed_factor))
+                self.next_spawn_delay = random.randint(min_delay, max_delay)
+            
+            # --- Spawn powerups ---
+            self.powerup_spawn_timer += 1
+            if self.powerup_spawn_timer >= self.next_powerup_spawn_delay:
+                self._spawn_powerup()
+                self.powerup_spawn_timer = 0
+                self.next_powerup_spawn_delay = random.randint(
+                    settings.MIN_POWERUP_SPAWN_DELAY, settings.MAX_POWERUP_SPAWN_DELAY
+                )
         
         # --- Spawn item đồng hành tại các mốc điểm ---
         for i, milestone in enumerate(settings.COMPANION_SCORE_MILESTONES):
@@ -305,12 +375,33 @@ class PlayState:
             if player_rect.colliderect(pickup.get_rect()):
                 self._spawn_companion()
                 self.companion_pickups.remove(pickup)
+                
+        # Thu thập Counter Shield
+        for shield in self.counter_shield_pickups[:]:
+            if player_rect.colliderect(shield.get_rect()):
+                self.player_has_counter = True
+                self.counter_shield_timer = settings.COUNTER_SHIELD_DURATION
+                self.counter_shield_pickups.remove(shield)
         
-        # Fireball tiêu diệt obstacle
+        # Fireball tiêu diệt obstacle và đánh Boss
         for fireball in self.fireballs[:]:
-            if not getattr(fireball, 'alive', True):
-                continue
             fb_rect = fireball.get_rect()
+            
+            # Xử lý Fireball va chạm với Boss
+            if self.boss and self.boss.state == self.boss.STATE_FIGHTING:
+                if fb_rect.colliderect(self.boss.get_rect()):
+                    is_dead = self.boss.take_damage(5) # Fireball gây 5 sát thương lên Boss
+                    fireball.alive = False
+                    if fireball in self.fireballs:
+                        self.fireballs.remove(fireball)
+                    if is_dead:
+                        self.boss_fight_active = False
+                        self.boss_defeated_count += 1
+                        # Spawn companion ngay sau khi hạ boss
+                        if len(self.companions) < 2:
+                            self._spawn_companion_pickup()
+                    continue
+            
             for obstacle in self.obstacles[:]:
                 if fb_rect.colliderect(obstacle.get_rect()):
                     fireball.alive = False
@@ -338,6 +429,59 @@ class PlayState:
                     self.hit_stop_timer = settings.HIT_STOP_FRAMES
                     return
                 break  # Chỉ nhận 1 hit mỗi frame
+                
+        # --- Boss Bullet Collisions ---
+        for bullet in self.boss_bullets[:]:
+            b_rect = bullet.get_rect()
+            
+            # Đạn đã bị phản thì xét va chạm với boss
+            if bullet.is_countered:
+                if self.boss and self.boss.state == self.boss.STATE_FIGHTING and b_rect.colliderect(self.boss.get_rect()):
+                    is_dead = self.boss.take_damage(settings.COUNTER_DAMAGE_TO_BOSS)
+                    if bullet in self.boss_bullets:
+                        self.boss_bullets.remove(bullet)
+                    if is_dead:
+                        self.boss_fight_active = False
+                        self.boss_defeated_count += 1
+                        # Spawn companion ngay sau khi hạ boss
+                        if len(self.companions) < 2:
+                            self._spawn_companion_pickup()
+                continue
+                
+            # Đạn chưa bị phản xét va chạm với player
+            if player_rect.colliderect(b_rect):
+                # Ưu tiên Counter
+                if self.player_has_counter:
+                    bullet.counter()
+                    continue
+                
+                # Nếu vượt qua được counter mà có frame bất tử hoặc đang dash thì né được
+                if self.player.is_invincible():
+                    continue
+                    
+                # Nếu có khiên team -> block toàn bộ đạn boss (triệt tiêu đạn)
+                if team_shielded:
+                    if bullet in self.boss_bullets:
+                        # Thêm hiệu ứng nổ
+                        color = settings.COLOR_BOSS_BULLET_DASH if bullet.requires_dash else settings.COLOR_BOSS_BULLET
+                        self.bullet_explosions.append({
+                            'x': bullet.x,
+                            'y': bullet.y,
+                            'radius': bullet.radius,
+                            'life': 15,
+                            'color': color
+                        })
+                        self.boss_bullets.remove(bullet)
+                    continue
+                    
+                # Nhận dmg
+                is_dead = self.player.take_damage(settings.BOSS_BULLET_DAMAGE)
+                if bullet in self.boss_bullets:
+                    self.boss_bullets.remove(bullet)
+                if is_dead:
+                    self.player.is_dead = True
+                    self.hit_stop_timer = settings.HIT_STOP_FRAMES
+                    return
         
         # --- Cập nhật score ---
         score_multiplier = 2 if self.player.has_powerup('double_score') else 1
@@ -358,12 +502,30 @@ class PlayState:
         self.ground.draw(self.screen)
         
         # 3. Obstacles, Powerups, Companion pickups
-        for obstacle in self.obstacles:
-            obstacle.draw(self.screen)
+        # Vẽ hiệu ứng nổ đạn boss
+        for exp in self.bullet_explosions:
+            alpha = int(255 * (exp['life'] / 15))
+            r = int(exp['radius'])
+            surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(surf, (*exp['color'][:3], alpha), (r, r), r, max(1, r // 4))
+            self.screen.blit(surf, (exp['x'] - r, exp['y'] - r))
+            
+        # Chỉ vẽ obstacle nếu ko có boss
+        if not self.boss_fight_active:
+            for obstacle in self.obstacles:
+                obstacle.draw(self.screen)
         for powerup in self.powerups:
             powerup.draw(self.screen)
         for pickup in self.companion_pickups:
             pickup.draw(self.screen)
+        for shield in self.counter_shield_pickups:
+            shield.draw(self.screen)
+            
+        # 3.5 Boss & Boss Bullets
+        if self.boss:
+            self.boss.draw(self.screen)
+        for bullet in self.boss_bullets:
+            bullet.draw(self.screen)
         
         # 4. Fireballs
         for fireball in self.fireballs:
@@ -375,13 +537,43 @@ class PlayState:
         
         # 6. Player
         self.player.draw(self.screen)
+        # Chỉ báo counter player
+        if self.player_has_counter and not self.player.is_dead:
+            px, py = self.player.rect.centerx, self.player.rect.centery
+            r = max(self.player.width, self.player.height) // 2 + 10
+            pygame.draw.circle(self.screen, settings.COLOR_COUNTER_SHIELD_GLOW, (px, py), r, 3)
+            # Pulse nhỏ
+            pulse = int(math.sin(pygame.time.get_ticks() * 0.01) * 3)
+            pygame.draw.circle(self.screen, settings.COLOR_COUNTER_SHIELD, (px, py), r + pulse, 1)
         
         # 7. HUD (lớp trên cùng) - tryfall nếu HUD chưa nhận được player arg
+        # Collect active buffs
+        active_buffs = []
+        for p_type, timer in self.player.active_powerups.items():
+            if timer > 0:
+                active_buffs.append({
+                    'id': p_type,
+                    'timer': timer,
+                    'max_timer': settings.POWERUP_DURATION
+                })
+        if self.player_has_counter:
+            active_buffs.append({
+                'id': 'counter_shield',
+                'timer': self.counter_shield_timer,
+                'max_timer': settings.COUNTER_SHIELD_DURATION
+            })
+
         try:
             self.hud.draw(self.screen, self.score, self.highscore, self.game_speed,
-                          self.player, self.companions)
+                          self.player, self.companions, active_buffs=active_buffs)
+            if self.boss and self.boss.state != self.boss.STATE_DYING:
+                self.hud.draw_boss_hp_bar(self.screen, self.boss)
         except TypeError:
-            self.hud.draw(self.screen, self.score, self.highscore, self.game_speed)
+            try:
+                self.hud.draw(self.screen, self.score, self.highscore, self.game_speed,
+                              self.player, self.companions)
+            except TypeError:
+                self.hud.draw(self.screen, self.score, self.highscore, self.game_speed)
         
         # 8. Giao diện Pause
         if self.is_paused:
@@ -449,9 +641,25 @@ class PlayState:
         # Đảm bảo không spawn quá gần obstacle cuối
         if self.obstacles:
             last_obs = self.obstacles[-1]
-            min_gap = 200
+            min_gap = 250
             if new_obstacle.x - (last_obs.x + last_obs.width) < min_gap:
                 new_obstacle.x = last_obs.x + last_obs.width + min_gap
+                
+        # Ngăn obstacle đè lên item đang có trên màn hình (đặc biệt là powerups)
+        safe_distance = 150
+        for _ in range(10):
+            overlapping = False
+            items = self.powerups + self.companion_pickups + getattr(self, 'counter_shield_pickups', [])
+            for item in items:
+                if abs(new_obstacle.x - item.x) < safe_distance:
+                    overlapping = True
+                    break
+            if overlapping:
+                new_obstacle.x += safe_distance
+            else:
+                break
+        
+        new_obstacle.rect.x = int(new_obstacle.x)
         
         self.obstacles.append(new_obstacle)
     
@@ -465,14 +673,14 @@ class PlayState:
             safe_distance = 100
             for _ in range(10):  # Thử tối đa 10 lần dịch chuyển
                 overlapping = False
-                for obs in self.obstacles:
+                for obs in self.obstacles + getattr(self, 'companion_pickups', []):
                     if abs(new_powerup.x - obs.x) < safe_distance:
                         overlapping = True
                         break
                 
                 if overlapping:
                     new_powerup.x += 150  # Dịch chuyển xa hơn một chút
-                    new_powerup.rect.x = new_powerup.x
+                    new_powerup.rect.x = int(new_powerup.x)
                 else:
                     break
                     

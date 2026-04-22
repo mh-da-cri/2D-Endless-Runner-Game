@@ -207,7 +207,7 @@ COLOR_COMPANION_PICKUP_GLOW = (255, 230, 150) # Hào quang vàng
 # ============================================================
 # HỆ THỐNG ĐỒNG HÀNH
 # ============================================================
-COMPANION_SCORE_MILESTONES = [200, 500]  # Mốc điểm xuất hiện item đồng hành
+COMPANION_SCORE_MILESTONES = [250]  # Mốc điểm xuất hiện item đồng hành (lần sau khi đánh xong boss)
 COMPANION_SCALE = 0.8                    # Tỉ lệ kích thước đồng hành (80%)
 COMPANION_OFFSET_X = -45                 # Khoảng cách X đồng hành sau lưng player
 COMPANION_PICKUP_SIZE = 35               # Kích thước item đồng hành
@@ -226,3 +226,41 @@ HUD_FONT_SIZE = 28
 GAMEOVER_TITLE_SIZE = 64
 GAMEOVER_SCORE_SIZE = 36
 GAMEOVER_HINT_SIZE = 24
+
+# ============================================================
+# BOSS SYSTEM / HỆ THỐNG BOSS
+# ============================================================
+BOSS_FIRST_SCORE = 500             # Mốc điểm boss đầu tiên xuất hiện (chỉ 1 boss)
+BOSS_HP = 100                       # Máu boss
+BOSS_BULLET_DAMAGE = 2              # Sát thương đạn boss lên player
+COUNTER_DAMAGE_TO_BOSS = 10         # Sát thương mỗi lần phản đạn boss
+
+BOSS_WIDTH = 120                    # Kích thước boss
+BOSS_HEIGHT = 150
+BOSS_X = 1050                       # Vị trí X của boss (bên phải màn hình)
+BOSS_Y_CENTER = 480                 # Vị trí Y trung tâm boss (đã hạ thấp để đánh tới/phản đạn)
+BOSS_ENTER_SPEED = 2                # Tốc độ boss bay vào màn hình
+
+# Đạn boss
+BOSS_BULLET_SPEED = 6               # Tốc độ đạn bay
+BOSS_BULLET_SIZE = 12               # Kích thước đạn
+BOSS_PATTERN_INTERVAL = 190         # Khoảng cách giữa các loạt đạn (frames)
+BOSS_BULLETS_PER_WAVE = 5           # Số đạn mỗi loạt cơ bản
+
+# Counter Shield (Khiên phản đạn)
+COUNTER_SHIELD_DURATION = 300       # Duration 5 giây (5 * 60 frames)
+COUNTER_SHIELD_SIZE = 30            # Kích thước item
+COUNTER_SHIELD_SPAWN_MIN = 360      # Spawn tối thiểu mỗi 6 giây
+COUNTER_SHIELD_SPAWN_MAX = 540      # Spawn tối đa mỗi 9 giây
+
+# Màu sắc boss
+COLOR_BOSS_BODY = (140, 30, 30)         # Đỏ tối (boss body)
+COLOR_BOSS_ACCENT = (200, 50, 50)       # Đỏ sáng (chi tiết boss)
+COLOR_BOSS_EYE = (255, 200, 0)          # Vàng (mắt boss)
+COLOR_BOSS_HP_BAR = (220, 40, 40)       # Đỏ (thanh HP boss)
+COLOR_BOSS_HP_BG = (60, 20, 20)         # Nền thanh HP
+COLOR_BOSS_BULLET = (255, 80, 80)       # Đỏ cam (đạn thường)
+COLOR_BOSS_BULLET_DASH = (200, 50, 255) # Tím (đạn bắt buộc dash)
+COLOR_COUNTER_SHIELD = (0, 220, 180)    # Xanh ngọc (khiên counter)
+COLOR_COUNTER_SHIELD_GLOW = (100, 255, 220) # Glow xanh ngọc
+COLOR_COUNTERED_BULLET = (0, 255, 200)  # Đạn sau khi bị counter

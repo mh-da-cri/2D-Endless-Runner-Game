@@ -20,13 +20,25 @@ def load_image(filename, scale=None, convert_alpha=True):
     Returns:
         pygame.Surface: Ảnh đã load (hoặc placeholder nếu lỗi)
     """
-    filepath = os.path.join("assets", "images", filename)
+    filepaths = [
+        os.path.join("assets", "images", filename),
+        os.path.join("assets", filename),
+    ]
     
     try:
-        if convert_alpha:
-            image = pygame.image.load(filepath).convert_alpha()
-        else:
-            image = pygame.image.load(filepath).convert()
+        image = None
+        filepath = filepaths[0]
+        for candidate in filepaths:
+            filepath = candidate
+            if os.path.exists(candidate):
+                if convert_alpha:
+                    image = pygame.image.load(candidate).convert_alpha()
+                else:
+                    image = pygame.image.load(candidate).convert()
+                break
+        
+        if image is None:
+            raise FileNotFoundError(filepath)
         
         if scale:
             image = pygame.transform.scale(image, scale)

@@ -293,12 +293,14 @@ class PlayState:
         
         # --- Collision Detection ---
         player_rect = self.player.get_rect()
+        priest_burrowed = self.player.is_priest_burrowed()
         
         # Thu thập powerups
-        for powerup in self.powerups[:]:
-            if player_rect.colliderect(powerup.get_rect()):
-                self.player.activate_powerup(powerup.type)
-                self.powerups.remove(powerup)
+        if not priest_burrowed:
+            for powerup in self.powerups[:]:
+                if player_rect.colliderect(powerup.get_rect()):
+                    self.player.activate_powerup(powerup.type)
+                    self.powerups.remove(powerup)
         
         # Thu thập item đồng hành
         for pickup in self.companion_pickups[:]:

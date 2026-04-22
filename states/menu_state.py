@@ -6,7 +6,7 @@ Hiển thị tên game, 2 nút Play và Exit, điều khiển bằng chuột.
 import pygame
 import sys
 import settings
-from utils.asset_loader import load_font
+from utils.asset_loader import load_font, load_sound, play_sound
 from utils.score_manager import load_highscore
 
 
@@ -57,6 +57,7 @@ class MenuState:
         
         # Highscore
         self.highscore = load_highscore()
+        self.click_sound = load_sound(settings.UI_CLICK_SOUND)
     
     def handle_events(self, events):
         """
@@ -78,11 +79,13 @@ class MenuState:
             
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.play_hovered:
+                    play_sound(self.click_sound, volume=0.5)
                     # Chuyển sang Character Select State
                     from states.character_select_state import CharacterSelectState
                     self.game_manager.change_state(CharacterSelectState(self.game_manager))
                 
                 elif self.exit_hovered:
+                    play_sound(self.click_sound, volume=0.5)
                     pygame.quit()
                     sys.exit()
     

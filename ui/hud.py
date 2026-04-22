@@ -20,7 +20,7 @@ class HUD:
         self.skill_font = load_font(18)
         self.frame_count = 0
     
-    def draw(self, screen, score, highscore, game_speed=None, player=None, companions=None):
+    def draw(self, screen, score, highscore, game_speed=None, player=None, companions=None, active_buffs=None):
         """
         Vẽ HUD lên màn hình.
         
@@ -90,6 +90,54 @@ class HUD:
             draw_y = start_y + i * 25
             screen.blit(ctrl_surface, (8, draw_y))
             screen.blit(ctrl_text, (12, draw_y + 2))
+            
+        # === Active Buffs ===
+        if active_buffs:
+            num_companions = len(companions) if companions else 0
+            self._draw_active_buffs(screen, active_buffs, num_companions)
+    
+    def _draw_active_buffs(self, screen, active_buffs, num_companions=0):
+        """Vẽ thanh thời lượng cho các item đã nhặt (buff)."""
+        start_x = 15
+        y = 100 + num_companions * 45 + 10
+        
+        labels = {
+            'shield': "Invincible",
+            'double_score': "2x Score",
+            'slow_down': "Slow Motion",
+            'speed_up': "Speed Boost",
+            'high_jump': "High Jump",
+            'counter_shield': "Counter Shield"
+        }
+        
+        colors = {
+            'shield': settings.COLOR_POWERUP_SHIELD,
+            'double_score': settings.COLOR_POWERUP_SCORE,
+            'slow_down': settings.COLOR_POWERUP_SLOW,
+            'speed_up': settings.COLOR_POWERUP_SPEED,
+            'high_jump': settings.COLOR_POWERUP_JUMP,
+            'counter_shield': settings.COLOR_COUNTER_SHIELD
+        }
+        
+        for buff in active_buffs:
+            b_id = buff['id']
+            timer = buff['timer']
+            max_timer = buff['max_timer']
+            
+            label_text = self.small_font.render(labels.get(b_id, b_id), True, colors.get(b_id, settings.COLOR_WHITE))
+            screen.blit(label_text, (start_x, y))
+            
+            # Bar
+            bar_width = 180
+            bar_height = 8
+            bg_rect = pygame.Rect(start_x, y + 25, bar_width, bar_height)
+            pygame.draw.rect(screen, (40, 40, 40, 180), bg_rect, border_radius=4)
+            
+            ratio = max(0, timer / max_timer)
+            fill_rect = pygame.Rect(start_x, y + 25, int(bar_width * ratio), bar_height)
+            pygame.draw.rect(screen, colors.get(b_id, settings.COLOR_WHITE), fill_rect, border_radius=4)
+            
+            y += 45
     
     def _draw_hp_bar(self, screen, player):
         """Vẽ thanh HP dạng trái tim."""
@@ -273,3 +321,44 @@ class HUD:
         sr.right = skill_x + indicator_width - 8
         sr.top = skill_y + 5
         screen.blit(status, sr)
+
+    def draw_boss_hp_bar(self, screen, boss):
+        """Vẽ thanh máu hiển thị ngay chính giữa ở trên cho Boss."""
+        if boss.hp <= 0:
+            return
+            
+        bar_width = 400
+        bar_height = 20
+        x = (settings.SCREEN_WIDTH - bar_width) // 2
+        y = 30
+        
+        # Tiêu đề "BOSS"
+        title = self.font.render("DEMON LORD", True, settings.COLOR_BOSS_ACCENT)
+        title_rect = title.get_rect(center=(settings.SCREEN_WIDTH // 2, y - 15))
+        screen.blit(title, title_rect)
+        
+        # Nền đen bọc ngoài
+        bg_rect = pygame.Rect(x - 2, y - 2, bar_width + 4, bar_height + 4)
+        pygame.draw.rect(screen, (0, 0, 0, 180), bg_rect, border_radius=4)
+        
+        # Thanh nền trống
+        empty_rect = pygame.Rect(x, y, bar_width, bar_height)
+        pygame.draw.rect(screen, settings.COLOR_BOSS_HP_BG, empty_rect, border_radius=3)
+        
+        # Tỷ lệ HP
+        hp_ratio = max(0, float(boss.hp) / boss.max_hp)
+        current_bar_width = int(bar_width * hp_ratio)
+        
+        if current_bar_width > 0:
+            hp_rect = pygame.Rect(x, y, current_bar_width, bar_height)
+            pygame.draw.rect(screen, settings.COLOR_BOSS_HP_BAR, hp_rect, border_radius=3)
+            # Rìa sáng
+            pygame.draw.rect(screen, (255, 100, 100), pygame.Rect(x, y, current_bar_width, 2), border_radius=2)
+            
+        # Vệt chớp lóe nếu máu tụt nhanh (giả lập hiệu ứng với frame đập nhỏ)
+        if boss.hp < boss.max_hp // 3:
+            flash_alpha = int(30 + 30 * math.sin(self.frame_count * 0.2))
+            flash_surf = pygame.Surface((bar_width + 10, bar_height + 10), pygame.SRCALPHA)
+            pygame.draw.rect(flash_surf, (*settings.COLOR_BOSS_HP_BAR, flash_alpha), flash_surf.get_rect(), border_radius=6)
+            screen.blit(flash_surf, (x - 5, y - 5))
+

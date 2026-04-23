@@ -22,6 +22,13 @@ class MenuState:
     TEXT_SHADOW = (78, 30, 34)
 
     def __init__(self, game_manager):
+        if getattr(settings, 'IS_ADMIN_TEST_MODE', False):
+            import importlib
+            importlib.reload(settings)
+            settings.IS_ADMIN_TEST_MODE = False
+            import utils.score_manager
+            utils.score_manager.reset_test_save()
+            
         import importlib
 
         importlib.reload(settings)

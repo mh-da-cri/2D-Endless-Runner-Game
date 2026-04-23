@@ -8,7 +8,7 @@ import pygame
 import settings
 from utils.asset_loader import load_font, load_sound, play_sound
 from utils.music_manager import play_music
-from utils.score_manager import save_highscore
+from utils.score_manager import load_save_data, save_save_data
 
 
 class GameOverState:
@@ -22,15 +22,29 @@ class GameOverState:
     TEXT_GOLD = (255, 224, 163)
     TEXT_SHADOW = (78, 30, 34)
 
-    def __init__(self, game_manager, final_score, previous_highscore, bg_snapshot=None):
+    def __init__(self, game_manager, final_score, previous_highscore, bg_snapshot=None, previous_play_state=None):
         self.game_manager = game_manager
         self.screen = game_manager.screen
         self.bg_snapshot = bg_snapshot
+        self.previous_play_state = previous_play_state
 
         self.final_score = int(final_score)
-        self.previous_highscore = int(previous_highscore)
-        self.is_new_record = save_highscore(self.final_score)
+        
+        save_data = load_save_data()
+        self.previous_highscore = save_data.get('highscore', 0)
+        self.is_new_record = self.final_score > self.previous_highscore
         self.highscore = max(self.final_score, self.previous_highscore)
+        save_data['highscore'] = self.highscore
+        
+        # Calculate money
+        self.earned_money = math.ceil(self.final_score / 2)
+        save_data['money'] = save_data.get('money', 0) + self.earned_money
+        
+        self.inventory = save_data.get('inventory', {})
+        
+        can_revive_this_run = not self.previous_play_state or not getattr(self.previous_play_state, 'has_revived_this_run', False)
+        self.has_revive = self.inventory.get('revive', 0) > 0 and can_revive_this_run
+        save_save_data(save_data)
 
         self.title_font = load_font(72, "georgia")
         self.score_font = load_font(34, "georgia")
@@ -57,6 +71,7 @@ class GameOverState:
 
         self.retry_hovered = False
         self.menu_hovered = False
+        self.revive_hovered = False
         self.frame_count = 0
         self.fade_alpha = 0
         self.click_sound = load_sound(settings.UI_CLICK_SOUND)
@@ -76,13 +91,30 @@ class GameOverState:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.retry_hovered:
                     play_sound(self.click_sound, volume=0.5)
-                    from states.character_select_state import CharacterSelectState
-
-                    self.game_manager.change_state(CharacterSelectState(self.game_manager))
+                    if self.has_revive and self.previous_play_state:
+                        # Revive
+                        self.inventory['revive'] -= 1
+                        save_data = load_save_data()
+                        save_data['inventory']['revive'] = self.inventory['revive']
+                        save_save_data(save_data)
+                        
+                        self.previous_play_state.has_revived_this_run = True
+                        
+                        self.previous_play_state.player.hp = self.previous_play_state.player.max_hp
+                        self.previous_play_state.player.is_dead = False
+                        self.previous_play_state.player.invincible_timer = settings.INVINCIBILITY_FRAMES
+                        self.previous_play_state.hit_stop_timer = 0
+                        self.previous_play_state.pending_game_over = False
+                        self.previous_play_state.obstacles.clear()
+                        
+                        self.game_manager.change_state(self.previous_play_state)
+                        play_music(settings.COMBAT_MUSIC, settings.BACKGROUND_MUSIC_VOLUME)
+                    else:
+                        from states.character_select_state import CharacterSelectState
+                        self.game_manager.change_state(CharacterSelectState(self.game_manager))
                 elif self.menu_hovered:
                     play_sound(self.click_sound, volume=0.5)
                     from states.menu_state import MenuState
-
                     self.game_manager.change_state(MenuState(self.game_manager))
 
             if event.type == pygame.KEYDOWN:
@@ -128,8 +160,13 @@ class GameOverState:
             record_text = self.hint_font.render("NEW RECORD!", True, self.GOLD_LIGHT)
             record_rect = record_text.get_rect(center=(center_x, high_rect.bottom + 30))
             self._draw_text_surface(record_text, record_rect, shadow=self.TEXT_SHADOW)
+            
+        money_text = self.score_font.render(f"+ {self.earned_money} Money", True, (255, 215, 0))
+        money_rect = money_text.get_rect(center=(center_x, high_rect.bottom + (60 if self.is_new_record else 30)))
+        self._draw_text_surface(money_text, money_rect, shadow=self.TEXT_SHADOW)
 
-        self._draw_button(self.retry_button, "PLAY AGAIN", self.retry_hovered)
+        retry_text = "REVIVE" if self.has_revive and self.previous_play_state else "PLAY AGAIN"
+        self._draw_button(self.retry_button, retry_text, self.retry_hovered)
         self._draw_button(self.menu_button, "MAIN MENU", self.menu_hovered)
 
         hint_text = self.hint_font.render("SPACE to retry  |  ESC for menu", True, (177, 148, 103))

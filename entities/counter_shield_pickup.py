@@ -57,9 +57,9 @@ class CounterShieldPickup:
         # Ký hiệu bên trong
         pygame.draw.circle(screen, settings.COLOR_WHITE, (cx, cy), self.width // 4)
         
-        # Nhãn "COUNTER" phía trên
+        # Nhãn "Counter Shield" phía trên
         font = pygame.font.Font(None, 16)
-        label = font.render("COUNTER", True, settings.COLOR_COUNTER_SHIELD_GLOW)
+        label = font.render("Counter Shield", True, settings.COLOR_COUNTER_SHIELD_GLOW)
         screen.blit(label, label.get_rect(center=(cx, cy - self.height//2 - 12)))
     
     def get_rect(self):

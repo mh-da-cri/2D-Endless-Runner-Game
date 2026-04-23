@@ -102,10 +102,10 @@ class HUD:
         y = 100 + num_companions * 45 + 10
         
         labels = {
-            'shield': "Invincible",
+            'shield': "Shield",
             'double_score': "2x Score",
-            'slow_down': "Slow Motion",
-            'speed_up': "Speed Boost",
+            'slow_down': "Slow Down",
+            'speed_up': "Speed Up",
             'high_jump': "High Jump",
             'counter_shield': "Counter Shield"
         }

@@ -59,7 +59,7 @@ class Companion:
         
         # Hoạt ảnh
         self.spawn_timer = 60  # Hiệu ứng fade-in khi xuất hiện
-        self.heal_effect_timer = 0
+
         self.skill_cast_timer = 0
         self.priest_dash_effect = []
         self.priest_duck_effect = []
@@ -349,7 +349,7 @@ class Companion:
                 self.frame_index = 0
                 self.update_time = pygame.time.get_ticks()
                 self.main_player.heal(1)
-                self.heal_effect_timer = 60
+
                 self.skill_cooldown_timer = self.skill_cooldown_max
                 play_sound(self.heal_sound, volume=0.5)
                 return "heal"
@@ -434,14 +434,12 @@ class Companion:
         if self.spawn_timer > 0:
             self.spawn_timer -= 1
         
-        # Hiệu ứng hồi máu
-        if self.heal_effect_timer > 0:
-            self.heal_effect_timer -= 1
+
         
         # Cập nhật hitbox
         self.rect.update(self.x, self.y, self.width, self.height)
     
-    def draw(self, screen):
+    def draw(self, screen, draw_individual_shield=True):
         """Vẽ đồng hành lên màn hình."""
         if self.main_player.is_dead:
             image_rect = self.dead_frame.get_rect(midbottom=self.rect.midbottom)
@@ -452,10 +450,14 @@ class Companion:
             alpha = int(255 * (1 - self.spawn_timer / 60))
         else:
             alpha = 255
+            
+        # Hiệu ứng nhấp nháy khi player bất tử (sau khi trúng đòn)
+        if self.main_player.invincible_timer > 0 and (self.main_player.invincible_timer // 6) % 2 == 0:
+            return
         
-        self._draw_character(screen, alpha)
+        self._draw_character(screen, alpha, draw_individual_shield=draw_individual_shield)
     
-    def _draw_character(self, screen, alpha=255):
+    def _draw_character(self, screen, alpha=255, draw_individual_shield=True):
         """Vẽ nhân vật đồng hành theo loại."""
         if self.animations:
             # Vẽ bằng Sprite
@@ -496,16 +498,10 @@ class Companion:
             screen.blit(surf, (self.x - 10, self.y - 20))
         
         # Hiệu ứng khiên
-        if self.skill_active and self.character_type == settings.CHARACTER_KNIGHT:
+        if draw_individual_shield and self.skill_active and self.character_type == settings.CHARACTER_KNIGHT:
             self._draw_shield_sprite(screen, settings.COLOR_SHIELD_SKILL, alpha=alpha)
         
-        # Hiệu ứng hồi máu
-        if self.heal_effect_timer > 0:
-            ratio = self.heal_effect_timer / 60
-            py = self.y - 15 - (1 - ratio) * 25
-            font = pygame.font.Font(None, 20)
-            text = font.render("+1", True, settings.COLOR_HEAL)
-            screen.blit(text, (self.x + self.width // 2 - 6, py))
+
         
         # Chỉ báo phím skill
         key_num = "2" if self.companion_index == 0 else "3"

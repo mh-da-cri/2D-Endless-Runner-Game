@@ -12,6 +12,14 @@ SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
 TITLE = "Knight Runner - Endless Fantasy"
+MENU_MUSIC = "Endgame by _91ultra - [Trap Music].mp3"
+COMBAT_MUSIC = "Rising.mp3"
+GAMEOVER_MUSIC = MENU_MUSIC
+BACKGROUND_MUSIC = MENU_MUSIC
+BACKGROUND_MUSIC_VOLUME = 0.35
+KNIGHT_DEATH_SOUND = "aargh5.ogg"
+SORCERER_DEATH_SOUND = "aw01.ogg"
+PRIEST_DEATH_SOUND = "wscream_2.wav"
 
 # ============================================================
 # PHYSICS / VẬT LÝ
@@ -108,9 +116,9 @@ SKILL_PRIEST_COOLDOWN = 1800  # Cooldown: 30 giây (30 * 60 frames)
 # ============================================================
 # OBSTACLES / CHƯỚNG NGẠI VẬT
 # ============================================================
-OBSTACLE_MIN_WIDTH = 40       # Kích thước tối thiểu
+OBSTACLE_MIN_WIDTH = 55       # Kích thước tối thiểu
 OBSTACLE_MAX_WIDTH = 70       # Kích thước tối đa
-OBSTACLE_MIN_HEIGHT = 50
+OBSTACLE_MIN_HEIGHT = 60
 OBSTACLE_MAX_HEIGHT = 80
 
 # Chướng ngại vật bay (cần cúi để né)
@@ -118,6 +126,15 @@ FLYING_OBSTACLE_Y_MIN = 480   # Vị trí Y tối thiểu (cao nhất) của obs
 FLYING_OBSTACLE_Y_MAX = 560   # Vị trí Y tối đa (thấp nhất) của obstacle bay
 FLYING_OBSTACLE_WIDTH = 50
 FLYING_OBSTACLE_HEIGHT = 40
+
+# Nhện đu tơ - đặt ở vùng double jump
+SPIDER_OBSTACLE_CHANCE = 0.18
+SPIDER_WIDTH = 70
+SPIDER_HEIGHT = 42
+SPIDER_Y_MIN = 330
+SPIDER_Y_MAX = 405
+SPIDER_SLOW_DURATION = FPS * 15
+SPIDER_SCORE_PENALTY = 30
 
 # Thời gian spawn (giãn cách rộng hơn)
 MIN_SPAWN_DELAY = 90          # Delay tối thiểu giữa các obstacle (frames)

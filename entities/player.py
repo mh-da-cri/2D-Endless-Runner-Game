@@ -33,6 +33,7 @@ class Player:
         # Duck / Cúi
         self.is_ducking = False
         self.is_dead = False
+        self.death_sound_played = False
         
         # Dash
         self.is_dashing = False
@@ -153,6 +154,7 @@ class Player:
         self.heal_sound = load_sound(settings.PRIEST_HEAL_SOUND)
         self.sorcerer_skill_sound = load_sound(settings.SORCERER_SKILL_SOUND)
         self.powerup_pickup_sound = load_sound(settings.POWERUP_PICKUP_SOUND)
+        self.death_sound = self._load_death_sound()
         
     def _load_animations(self):
         """Cắt ảnh từ Sprite Sheet."""
@@ -842,6 +844,24 @@ class Player:
         elif self.character_type == settings.CHARACTER_PRIEST:
             return settings.SKILL_PRIEST_COOLDOWN
         return 0
+
+    def _load_death_sound(self):
+        """Load death scream based on the selected character."""
+        if self.character_type == settings.CHARACTER_KNIGHT:
+            return load_sound(settings.KNIGHT_DEATH_SOUND)
+        if self.character_type == settings.CHARACTER_SORCERER:
+            return load_sound(settings.SORCERER_DEATH_SOUND)
+        if self.character_type == settings.CHARACTER_PRIEST:
+            return load_sound(settings.PRIEST_DEATH_SOUND)
+        return None
+
+    def _play_death_sound(self):
+        """Play the death scream only once for the current life."""
+        if self.death_sound_played:
+            return
+
+        play_sound(self.death_sound, volume=0.55)
+        self.death_sound_played = True
     
     def take_damage(self, amount=1):
         """
@@ -867,6 +887,7 @@ class Player:
         self.hp -= amount
         
         if self.hp <= 0:
+            self._play_death_sound()
             return True  # Chết
         
         # Kích hoạt invincibility
@@ -1138,6 +1159,7 @@ class Player:
         self.is_ducking = False
         self.is_dashing = False
         self.is_dead = False
+        self.death_sound_played = False
         self.dash_timer = 0
         self.dash_cooldown_timer = 0
         self.can_dash = True

@@ -14,6 +14,7 @@ from entities.obstacle import Obstacle
 from entities.ground import Ground
 from ui.background import Background
 from ui.hud import HUD
+from utils.music_manager import play_music
 from utils.score_manager import load_highscore
 
 
@@ -37,6 +38,7 @@ class PlayState:
         self.ground = Ground()
         self.background = Background()
         self.hud = HUD()
+        play_music(settings.COMBAT_MUSIC, settings.BACKGROUND_MUSIC_VOLUME)
         
         # Obstacles
         self.obstacles = []
@@ -427,7 +429,10 @@ class PlayState:
                     continue
                 
                 # Nhận sát thương
-                is_dead = self.player.take_damage()
+                is_dead = self.player.take_damage(getattr(obstacle, 'damage', 1))
+                self._apply_obstacle_hit_effect(obstacle)
+                if getattr(obstacle, 'consume_on_hit', False) and obstacle in self.obstacles:
+                    self.obstacles.remove(obstacle)
                 if is_dead:
                     # Bắt đầu hit-stop
                     self.player.is_dead = True
@@ -451,7 +456,8 @@ class PlayState:
                         continue
                     
                     # Nhận sát thương cho cả đội
-                    is_dead = self.player.take_damage()
+                    is_dead = self.player.take_damage(getattr(obstacle, 'damage', 1))
+                    self._apply_obstacle_hit_effect(obstacle)
                     if obstacle in self.obstacles:
                         self.obstacles.remove(obstacle)
                     
@@ -662,10 +668,13 @@ class PlayState:
         active_buffs = []
         for p_type, timer in self.player.active_powerups.items():
             if timer > 0:
+                max_timer = settings.POWERUP_DURATION
+                if p_type == 'slow_down' and timer > settings.POWERUP_DURATION:
+                    max_timer = settings.SPIDER_SLOW_DURATION
                 active_buffs.append({
                     'id': p_type,
                     'timer': timer,
-                    'max_timer': settings.POWERUP_DURATION
+                    'max_timer': max_timer
                 })
         if self.player_has_counter:
             active_buffs.append({
@@ -744,6 +753,17 @@ class PlayState:
                 self.companions.append(companion)
         except (ImportError, Exception):
             pass
+
+    def _apply_obstacle_hit_effect(self, obstacle):
+        """Apply extra effects from special obstacles such as spiders."""
+        score_penalty = getattr(obstacle, 'score_penalty', 0)
+        if score_penalty:
+            self.score = max(0, self.score - score_penalty)
+
+        slow_duration = getattr(obstacle, 'slow_duration', 0)
+        if slow_duration:
+            current = self.player.active_powerups.get('slow_down', 0)
+            self.player.active_powerups['slow_down'] = max(current, slow_duration)
     
     def _spawn_obstacle(self):
         """Tạo obstacle mới."""

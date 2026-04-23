@@ -40,6 +40,34 @@ SPIDER_VISUAL_SCALE = 1.6
 BAT_DRAW_OFFSET_Y = -2
 SKELETON_DRAW_OFFSET_Y = 4
 SPIDER_WEB_COLOR = (178, 196, 196)
+BAT_VARIANTS = {
+    "orange": {
+        "frame_index": 0,
+        "placeholder_color": (226, 146, 116),
+    },
+    "gray": {
+        "frame_index": 1,
+        "placeholder_color": (186, 186, 196),
+    },
+    "yellow": {
+        "frame_index": 2,
+        "placeholder_color": (242, 182, 72),
+    },
+}
+SKELETON_VARIANTS = {
+    "orange": {
+        "frame_index": 0,
+        "placeholder_color": (180, 102, 74),
+    },
+    "purple": {
+        "frame_index": 1,
+        "placeholder_color": (154, 90, 164),
+    },
+    "gray": {
+        "frame_index": 2,
+        "placeholder_color": (182, 182, 182),
+    },
+}
 SPIDER_VARIANTS = {
     "gray": {
         "frame_index": 0,
@@ -59,6 +87,11 @@ SPIDER_VARIANTS = {
         "score_penalty": 0,
         "slow_duration": 0,
     },
+}
+OBSTACLE_DEATH_SOUNDS = {
+    "ground": settings.OBSTACLE_SKELETON_DEATH_SOUND,
+    "flying": settings.OBSTACLE_BAT_DEATH_SOUND,
+    "spider": settings.OBSTACLE_SPIDER_DEATH_SOUND,
 }
 
 
@@ -147,7 +180,11 @@ class Obstacle:
         )
         self.x = settings.SCREEN_WIDTH + random.randint(0, 100)
         self.y = settings.GROUND_Y - self.height
-        self.color = settings.COLOR_OBSTACLE_GROUND
+        self._set_skeleton_variant(random.choice(tuple(SKELETON_VARIANTS.keys())))
+
+    def _set_skeleton_variant(self, variant):
+        self.variant = variant
+        self.color = SKELETON_VARIANTS[self.variant]["placeholder_color"]
 
     def _init_flying_obstacle(self):
         self.width = settings.FLYING_OBSTACLE_WIDTH
@@ -162,8 +199,12 @@ class Obstacle:
         else:
             self.y = 450
 
-        self.color = settings.COLOR_OBSTACLE_FLYING
         self.x = settings.SCREEN_WIDTH + random.randint(0, 100)
+        self._set_bat_variant(random.choice(tuple(BAT_VARIANTS.keys())))
+
+    def _set_bat_variant(self, variant):
+        self.variant = variant
+        self.color = BAT_VARIANTS[self.variant]["placeholder_color"]
 
     def _init_spider_obstacle(self):
         self.width = settings.SPIDER_WIDTH
@@ -180,7 +221,8 @@ class Obstacle:
         self.damage = data["damage"]
         self.score_penalty = data["score_penalty"]
         self.slow_duration = data["slow_duration"]
-        # Không cần color tint nữa vì đã dùng sprite màu sẵn
+        # Thêm lại color cho placeholder đề phòng lỗi load sprite
+        self.color = (190, 190, 185) if variant == "gray" else (90, 170, 255) if variant == "blue" else (240, 76, 64)
 
     def _animation_cooldown(self):
         if self.type == self.TYPE_GROUND:
@@ -221,9 +263,9 @@ class Obstacle:
             self._draw_spider_placeholder(screen)
 
     def _draw_sprite(self, screen):
-        frame = self.frames[self.animation_frame]
-
         if self.type == self.TYPE_GROUND:
+            variant_data = SKELETON_VARIANTS.get(self.variant, SKELETON_VARIANTS["orange"])
+            frame = self.frames[variant_data["frame_index"]]
             target_height = max(1, int(self.height * SKELETON_VISUAL_SCALE))
             target_width = max(1, int(frame.get_width() * target_height / frame.get_height()))
             sprite = pygame.transform.scale(frame, (target_width, target_height))
@@ -232,6 +274,8 @@ class Obstacle:
                 midbottom=(self.rect.centerx, self.rect.bottom + SKELETON_DRAW_OFFSET_Y)
             )
         elif self.type == self.TYPE_FLYING:
+            variant_data = BAT_VARIANTS.get(self.variant, BAT_VARIANTS["orange"])
+            frame = self.frames[variant_data["frame_index"]]
             target_width = max(1, int(self.width * BAT_VISUAL_SCALE))
             target_height = max(1, int(frame.get_height() * target_width / frame.get_width()))
             sprite = pygame.transform.scale(frame, (target_width, target_height))
@@ -354,3 +398,6 @@ class Obstacle:
             self.rect.width - shrink * 2,
             self.rect.height - shrink * 2,
         )
+
+    def get_defeat_sound_filename(self):
+        return OBSTACLE_DEATH_SOUNDS.get(self.type)

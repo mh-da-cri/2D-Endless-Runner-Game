@@ -20,6 +20,8 @@ BACKGROUND_MUSIC_VOLUME = 0.35
 KNIGHT_DEATH_SOUND = "aargh5.ogg"
 SORCERER_DEATH_SOUND = "aw01.ogg"
 PRIEST_DEATH_SOUND = "wscream_2.wav"
+BOSS_PLAYER_HURT_SOUND = "creature_hurt_02.ogg"
+BOSS_DEATH_SOUND = "zombie-17.wav"
 
 # ============================================================
 # PHYSICS / VẬT LÝ
@@ -46,11 +48,16 @@ PRIEST_HEAL_SOUND = "healspell2.aif"
 SORCERER_SKILL_SOUND = "Magic Missiles.wav"
 POWERUP_PICKUP_SOUND = "itempickup.mp3"
 UI_CLICK_SOUND = "Selection Click.wav"
+OBSTACLE_SPIDER_DEATH_SOUND = "blade_02.ogg"
+OBSTACLE_SKELETON_DEATH_SOUND = "ghost.wav"
+OBSTACLE_BAT_DEATH_SOUND = "Monster-1.wav"
 SPRITE_FRAME_WIDTH = 44
 SPRITE_FRAME_HEIGHT = 48
 SPRITE_SCALE = 2.5             # ≈120px visual (1.5× obstacle max 80px)
 ANIMATION_COOLDOWN = 100      # Thời gian chuyển frame (ms)
 HIT_STOP_FRAMES = 45          # Thời gian khựng hình khi đâm quái (frames) ~0.75 giây
+PLAYER_HURT_SOUND_VOLUME = 0.22
+BOSS_HURT_SOUND_VOLUME = 0.38
 
 # Sprite Configuration cho sorlosheet.png (Sorcerer)
 SORCERER_SPRITE_IMAGE = "sorlosheet.png"

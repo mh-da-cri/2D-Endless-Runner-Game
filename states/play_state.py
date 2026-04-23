@@ -14,6 +14,7 @@ from entities.obstacle import Obstacle
 from entities.ground import Ground
 from ui.background import Background
 from ui.hud import HUD
+from utils.asset_loader import load_sound, play_sound
 from utils.music_manager import play_music
 from utils.score_manager import load_save_data, save_save_data
 
@@ -91,6 +92,9 @@ class PlayState:
         self.next_counter_shield_delay = 0
         self.player_has_counter = False
         self.counter_shield_timer = 0
+        self.obstacle_death_sounds = self._load_obstacle_death_sounds()
+        self.boss_hurt_sound = load_sound(settings.BOSS_PLAYER_HURT_SOUND)
+        self.boss_death_sound = load_sound(settings.BOSS_DEATH_SOUND)
     
     def handle_events(self, events):
         """
@@ -458,6 +462,7 @@ class PlayState:
                     if fireball in self.fireballs:
                         self.fireballs.remove(fireball)
                     if is_dead:
+                        play_sound(self.boss_death_sound, volume=0.55)
                         self.boss_fight_active = False
                         self.boss_defeated_count += 1
                         self.boss = None
@@ -470,9 +475,7 @@ class PlayState:
             for obstacle in self.obstacles[:]:
                 if fb_rect.colliderect(obstacle.get_rect()):
                     fireball.alive = False
-                    self.obstacles.remove(obstacle)
-                    if not self.boss_fight_active:
-                        self.combo += 1
+                    self._destroy_obstacle(obstacle, grant_combo=not self.boss_fight_active)
                     break
         
         # Va chạm player với obstacle
@@ -481,7 +484,7 @@ class PlayState:
             if player_rect.colliderect(obstacle.get_rect()):
                 # Nếu có khiên → phá hủy obstacle
                 if team_shielded:
-                    self.obstacles.remove(obstacle)
+                    self._destroy_obstacle(obstacle)
                     continue
                 
                 # Bất tử (sau khi trúng đòn) → bỏ qua
@@ -492,8 +495,8 @@ class PlayState:
                 self.combo = 0 # Reset combo
                 is_dead = self.player.take_damage(getattr(obstacle, 'damage', 1))
                 self._apply_obstacle_hit_effect(obstacle)
-                if getattr(obstacle, 'consume_on_hit', False) and obstacle in self.obstacles:
-                    self.obstacles.remove(obstacle)
+                if getattr(obstacle, 'consume_on_hit', False):
+                    self._destroy_obstacle(obstacle)
                 if is_dead:
                     # Bắt đầu hit-stop
                     self.player.is_dead = True
@@ -508,8 +511,7 @@ class PlayState:
                 if comp.rect.colliderect(obs_rect):
                     # Nếu có khiên → phá hủy obstacle
                     if team_shielded:
-                        if obstacle in self.obstacles:
-                            self.obstacles.remove(obstacle)
+                        self._destroy_obstacle(obstacle)
                         break
                     
                     # Bất tử → bỏ qua
@@ -520,8 +522,7 @@ class PlayState:
                     self.combo = 0 # Reset combo
                     is_dead = self.player.take_damage(getattr(obstacle, 'damage', 1))
                     self._apply_obstacle_hit_effect(obstacle)
-                    if obstacle in self.obstacles:
-                        self.obstacles.remove(obstacle)
+                    self._destroy_obstacle(obstacle)
                     
                     if is_dead:
                         self.player.is_dead = True
@@ -540,6 +541,7 @@ class PlayState:
                     if bullet in self.boss_bullets:
                         self.boss_bullets.remove(bullet)
                     if is_dead:
+                        play_sound(self.boss_death_sound, volume=0.55)
                         self.boss_fight_active = False
                         self.boss_defeated_count += 1
                         self.boss = None
@@ -577,7 +579,11 @@ class PlayState:
                     
                 # Nhận dmg
                 self.combo = 0 # Reset combo
-                is_dead = self.player.take_damage(settings.BOSS_BULLET_DAMAGE)
+                is_dead = self.player.take_damage(
+                    settings.BOSS_BULLET_DAMAGE,
+                    hurt_sound=self.boss_hurt_sound,
+                    hurt_volume=settings.BOSS_HURT_SOUND_VOLUME,
+                )
                 if bullet in self.boss_bullets:
                     self.boss_bullets.remove(bullet)
                 if is_dead:
@@ -740,6 +746,8 @@ class PlayState:
         
         # 7. HUD (lớp trên cùng) - tryfall nếu HUD chưa nhận được player arg
         # Collect active buffs
+        self._draw_low_hp_warning()
+
         active_buffs = []
         for p_type, timer in self.player.active_powerups.items():
             if timer > 0:
@@ -860,6 +868,55 @@ class PlayState:
         if slow_duration:
             current = self.player.active_powerups.get('slow_down', 0)
             self.player.active_powerups['slow_down'] = max(current, slow_duration)
+
+    def _load_obstacle_death_sounds(self):
+        filenames = {
+            settings.OBSTACLE_SPIDER_DEATH_SOUND,
+            settings.OBSTACLE_SKELETON_DEATH_SOUND,
+            settings.OBSTACLE_BAT_DEATH_SOUND,
+        }
+        return {filename: load_sound(filename) for filename in filenames}
+
+    def _play_obstacle_death_sound(self, obstacle):
+        filename = getattr(obstacle, "get_defeat_sound_filename", lambda: None)()
+        if not filename:
+            return
+        play_sound(self.obstacle_death_sounds.get(filename), volume=0.45)
+
+    def _destroy_obstacle(self, obstacle, grant_combo=False):
+        if obstacle not in self.obstacles:
+            return False
+
+        self._play_obstacle_death_sound(obstacle)
+        self.obstacles.remove(obstacle)
+        if grant_combo:
+            self.combo += 1
+        return True
+
+    def _draw_low_hp_warning(self):
+        """Draw subtle pulsing red glows in the four corners when player is critical."""
+        if self.player.is_dead or self.player.hp != 1:
+            return
+
+        width = settings.SCREEN_WIDTH
+        height = settings.SCREEN_HEIGHT
+        pulse = (math.sin(pygame.time.get_ticks() * 0.008) + 1) * 0.5
+        base_radius = 215 + int(18 * pulse)
+        base_alpha = 18 + int(18 * pulse)
+        overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+        corners = ((0, 0), (width, 0), (0, height), (width, height))
+
+        for layer in range(4):
+            radius = base_radius - layer * 34
+            alpha = max(0, base_alpha - layer * 4)
+            if radius <= 0 or alpha <= 0:
+                continue
+
+            color = (170, 24, 24, alpha)
+            for center in corners:
+                pygame.draw.circle(overlay, color, center, radius)
+
+        self.screen.blit(overlay, (0, 0))
     
     def _spawn_obstacle(self):
         """Tạo obstacle mới."""

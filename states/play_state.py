@@ -383,6 +383,7 @@ class PlayState:
             if player_rect.colliderect(shield.get_rect()):
                 self.player_has_counter = True
                 self.counter_shield_timer = settings.COUNTER_SHIELD_DURATION
+                self.player.activate_powerup('counter_shield')
                 self.counter_shield_pickups.remove(shield)
         
         # Fireball tiêu diệt obstacle và đánh Boss
@@ -399,6 +400,8 @@ class PlayState:
                     if is_dead:
                         self.boss_fight_active = False
                         self.boss_defeated_count += 1
+                        self.boss = None
+                        self.boss_bullets.clear()
                         # Spawn companion ngay sau khi hạ boss
                         if len(self.companions) < 2:
                             self._spawn_companion_pickup()
@@ -431,7 +434,33 @@ class PlayState:
                     self.hit_stop_timer = settings.HIT_STOP_FRAMES
                     return
                 break  # Chỉ nhận 1 hit mỗi frame
-                
+        
+        # --- Va chạm đồng hành với obstacle (Chia sẻ sát thương cả đội) ---
+        for obstacle in self.obstacles[:]:
+            obs_rect = obstacle.get_rect()
+            for comp in self.companions:
+                if comp.rect.colliderect(obs_rect):
+                    # Nếu có khiên → phá hủy obstacle
+                    if team_shielded:
+                        if obstacle in self.obstacles:
+                            self.obstacles.remove(obstacle)
+                        break
+                    
+                    # Bất tử → bỏ qua
+                    if self.player.is_invincible():
+                        continue
+                    
+                    # Nhận sát thương cho cả đội
+                    is_dead = self.player.take_damage()
+                    if obstacle in self.obstacles:
+                        self.obstacles.remove(obstacle)
+                    
+                    if is_dead:
+                        self.player.is_dead = True
+                        self.hit_stop_timer = settings.HIT_STOP_FRAMES
+                        return
+                    break # Chỉ nhận tối đa 1 hit từ obstacle này
+        
         # --- Boss Bullet Collisions ---
         for bullet in self.boss_bullets[:]:
             b_rect = bullet.get_rect()
@@ -445,6 +474,8 @@ class PlayState:
                     if is_dead:
                         self.boss_fight_active = False
                         self.boss_defeated_count += 1
+                        self.boss = None
+                        self.boss_bullets.clear()
                         # Spawn companion ngay sau khi hạ boss
                         if len(self.companions) < 2:
                             self._spawn_companion_pickup()
@@ -495,6 +526,79 @@ class PlayState:
         self.background.update(active_speed)
         self.ground.update(active_speed)
     
+    def _draw_team_shield(self):
+        """Vẽ lá chắn lớn bao quanh toàn bộ đội nếu có đồng hành."""
+        if not self._is_team_shielded() or not self.companions:
+            return
+            
+        # Hiệu ứng nhấp nháy khi player bất tử (sau khi trúng đòn)
+        if self.player.invincible_timer > 0 and (self.player.invincible_timer // 6) % 2 == 0:
+            return
+            
+        # Xác định màu khiên (ưu tiên màu xanh skill Knight)
+        color = settings.COLOR_POWERUP_SHIELD
+        is_skill_shield = False
+        if (self.player.skill_active and self.player.character_type == settings.CHARACTER_KNIGHT):
+            color = settings.COLOR_SHIELD_SKILL
+            is_skill_shield = True
+        else:
+            for comp in self.companions:
+                if hasattr(comp, 'has_active_shield') and comp.has_active_shield():
+                    color = settings.COLOR_SHIELD_SKILL
+                    is_skill_shield = True
+                    break
+
+        # Tính toán bounding box của toàn đội
+        rects = [self.player.rect]
+        for comp in self.companions:
+            rects.append(comp.rect)
+            
+        min_x = min(r.left for r in rects)
+        max_x = max(r.right for r in rects)
+        min_y = min(r.top for r in rects)
+        max_y = max(r.bottom for r in rects)
+        
+        # Thêm padding rộng để bao quát
+        pad_x, pad_y = 35, 30
+        w = (max_x - min_x) + pad_x * 2
+        h = (max_y - min_y) + pad_y * 2
+        
+        # Nếu cả đội cúi xuống, thu nhỏ vòng tròn thay vì làm dẹt sprite
+        if self.player.is_ducking:
+            # Thu nhỏ chiều rộng và giữ chiều cao không bị giảm quá sâu để tránh dẹt
+            w = int(w * 0.82)
+            h = int(h * 1.15) # Bù lại chiều cao để giữ hình dáng tròn trịa hơn
+            shield_rect = pygame.Rect(0, 0, w, h)
+            # Căn giữa theo vị trí cúi của đội
+            shield_rect.center = (min_x + (max_x - min_x) // 2, min_y + (max_y - min_y) // 2 + 5)
+        else:
+            shield_rect = pygame.Rect(min_x - pad_x, min_y - pad_y, w, h)
+        
+        # Hiệu ứng nhấp nháy/pulse
+        pulse = int(math.sin(pygame.time.get_ticks() * 0.005) * 6)
+        shield_rect.inflate_ip(pulse, pulse)
+        
+        # Vẽ Sprite Khiên (Sử dụng sprite có sẵn từ player)
+        shield_sprite = getattr(self.player, 'shield_sprite', None)
+        if shield_sprite:
+            # Scale sprite theo kích thước của team_rect
+            scaled_shield = pygame.transform.smoothscale(shield_sprite, (shield_rect.width, shield_rect.height))
+            scaled_shield = scaled_shield.copy()
+            
+            # Phủ màu (tint) theo loại khiên
+            tint = pygame.Surface((shield_rect.width, shield_rect.height), pygame.SRCALPHA)
+            tint.fill((*color, 80))
+            scaled_shield.blit(tint, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
+            
+            scaled_shield.set_alpha(200)
+            self.screen.blit(scaled_shield, shield_rect.topleft)
+        else:
+            # Fallback nếu không có sprite
+            pygame.draw.ellipse(self.screen, color, shield_rect, 3)
+            inner_surf = pygame.Surface((shield_rect.width, shield_rect.height), pygame.SRCALPHA)
+            pygame.draw.ellipse(inner_surf, (*color, 45), (0, 0, shield_rect.width, shield_rect.height))
+            self.screen.blit(inner_surf, shield_rect.topleft)
+
     def draw(self):
         """Vẽ mọi thứ lên màn hình (theo thứ tự lớp)."""
         # 1. Background (lớp xa nhất)
@@ -534,11 +638,16 @@ class PlayState:
             fireball.draw(self.screen)
         
         # 5. Đồng hành (phía sau player)
+        use_group_shield = self._is_team_shielded() and len(self.companions) > 0
         for comp in self.companions:
-            comp.draw(self.screen)
+            comp.draw(self.screen, draw_individual_shield=not use_group_shield)
         
         # 6. Player
-        self.player.draw(self.screen)
+        self.player.draw(self.screen, draw_individual_shield=not use_group_shield)
+        
+        # 6.5 Khiên nhóm (bao quanh tất cả)
+        if use_group_shield:
+            self._draw_team_shield()
         # Chỉ báo counter player
         if self.player_has_counter and not self.player.is_dead:
             px, py = self.player.rect.centerx, self.player.rect.centery

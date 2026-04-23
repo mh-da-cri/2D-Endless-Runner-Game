@@ -64,7 +64,8 @@ class Player:
             'double_score': {'label': '2x Score', 'color': settings.COLOR_POWERUP_SCORE},
             'slow_down': {'label': 'Slow Down', 'color': settings.COLOR_POWERUP_SLOW},
             'speed_up': {'label': 'Speed Up', 'color': settings.COLOR_POWERUP_SPEED},
-            'high_jump': {'label': 'High Jump', 'color': settings.COLOR_POWERUP_JUMP}
+            'high_jump': {'label': 'High Jump', 'color': settings.COLOR_POWERUP_JUMP},
+            'counter_shield': {'label': 'Counter Shield', 'color': settings.COLOR_COUNTER_SHIELD}
         }
         
         # --- EFFECTS ---
@@ -654,7 +655,7 @@ class Player:
         # Cập nhật hitbox
         self.rect.update(self.x, self.y, self.width, self.height)
     
-    def draw(self, screen):
+    def draw(self, screen, draw_individual_shield=True):
         """Vẽ player lên màn hình - route theo loại nhân vật."""
         
         # --- XÁC CHẾT (tất cả nhân vật dùng dead_frame) ---
@@ -714,12 +715,12 @@ class Player:
                 screen.blit(current_image, image_rect)
         
         # Skill shield Knight - vòng tròn bọc quanh nhân vật
-        if self.skill_active and self.character_type == settings.CHARACTER_KNIGHT:
+        if not is_flashing and draw_individual_shield and self.skill_active and self.character_type == settings.CHARACTER_KNIGHT:
             self.shield_pulse = (self.shield_pulse + 0.1) % (2 * math.pi)
             self._draw_shield_sprite(screen, settings.COLOR_SHIELD_SKILL)
         
         # Powerup shield - vòng tròn xanh dương bọc quanh nhân vật (tất cả nhân vật sprite)
-        if self.has_powerup('shield') and self.animations:
+        if not is_flashing and draw_individual_shield and self.has_powerup('shield') and self.animations:
             if not (self.skill_active and self.character_type == settings.CHARACTER_KNIGHT):
                 self.shield_pulse = (self.shield_pulse + 0.08) % (2 * math.pi)
             self._draw_shield_sprite(screen, settings.COLOR_POWERUP_SHIELD, base_padding=24)

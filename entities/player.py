@@ -10,6 +10,7 @@ import os
 import settings
 from utils.spritesheet import SpriteSheet
 from utils.asset_loader import load_image, load_font, load_sound, play_sound
+from utils.score_manager import load_save_data
 
 
 class Player:
@@ -46,7 +47,9 @@ class Player:
         
         # --- CHARACTER & HP SYSTEM ---
         self.character_type = character_type
-        self.max_hp = settings.PLAYER_MAX_HP
+        save_data = load_save_data()
+        hp_upgrades = save_data.get('inventory', {}).get('max_hp_upgrades', 0)
+        self.max_hp = settings.PLAYER_MAX_HP + hp_upgrades
         self.hp = self.max_hp
         self.invincible_timer = 0
         
@@ -952,9 +955,9 @@ class Player:
         
         return None
     
-    def activate_powerup(self, p_type):
+    def activate_powerup(self, p_type, duration=None):
         """Kích hoạt một power-up."""
-        self.active_powerups[p_type] = settings.POWERUP_DURATION
+        self.active_powerups[p_type] = duration if duration is not None else settings.POWERUP_DURATION
         play_sound(self.powerup_pickup_sound, volume=0.5)
         
     def has_powerup(self, p_type):

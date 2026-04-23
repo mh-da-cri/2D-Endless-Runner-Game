@@ -15,7 +15,7 @@ from entities.ground import Ground
 from ui.background import Background
 from ui.hud import HUD
 from utils.music_manager import play_music
-from utils.score_manager import load_highscore
+from utils.score_manager import load_save_data, save_save_data
 
 
 class PlayState:
@@ -65,15 +65,21 @@ class PlayState:
         self.companion_milestones_spawned = [False] * len(settings.COMPANION_SCORE_MILESTONES)
         
         # Game state
+        save_data = load_save_data()
         self.score = 0
-        self.highscore = load_highscore()
+        self.highscore = save_data.get('highscore', 0)
+        self.inventory = save_data.get('inventory', {})
         self.game_speed = settings.INITIAL_GAME_SPEED
+        self.combo = 0
+        self.show_boost_prompt = self.inventory.get('boost', 0) > 0
+        self.boosting_to_200 = False
         
         # Flags
         self.is_paused = False
         self.hit_stop_timer = 0
         self.death_snapshot = None    # Snapshot màn hình lúc xác chết
         self.pending_game_over = False  # Flag chờ chuyển sang GameOver
+        self.has_revived_this_run = False
         
         # Boss system
         self.boss = None
@@ -99,6 +105,32 @@ class PlayState:
                 sys.exit()
             
             if event.type == pygame.KEYDOWN:
+                if self.show_boost_prompt:
+                    if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
+                        self.show_boost_prompt = False
+                        self.inventory['boost'] -= 1
+                        save_data = load_save_data()
+                        save_data['inventory']['boost'] = self.inventory['boost']
+                        save_save_data(save_data)
+                        self.boosting_to_200 = True
+                        self.player.activate_powerup('shield')
+                    elif event.key == pygame.K_ESCAPE:
+                        self.show_boost_prompt = False
+                    continue
+
+                # Omni Buff (Phím Q)
+                if event.key == pygame.K_q and not self.player.is_dead:
+                    if self.inventory.get('omni_buff', 0) > 0 and getattr(self, 'omni_buff_uses', 0) < 3:
+                        self.inventory['omni_buff'] -= 1
+                        self.omni_buff_uses = getattr(self, 'omni_buff_uses', 0) + 1
+                        save_data = load_save_data()
+                        save_data['inventory']['omni_buff'] = self.inventory['omni_buff']
+                        save_save_data(save_data)
+                        self.player.activate_powerup('speed_up', 600)
+                        self.player.activate_powerup('high_jump', 600)
+                        self.player.activate_powerup('shield', 600)
+                        self.player.activate_powerup('double_score', 600)
+
                 # Toggle pause
                 if event.key == pygame.K_p:
                     self.is_paused = not self.is_paused
@@ -200,6 +232,9 @@ class PlayState:
     
     def update(self):
         """Cập nhật logic game mỗi frame."""
+        if self.show_boost_prompt:
+            return
+            
         if self.is_paused:
             return
             
@@ -217,7 +252,19 @@ class PlayState:
             return  # Đóng băng - không cập nhật physics/cuộn cảnh
         
         # --- Cập nhật game speed ---
-        if not self.boss_fight_active and self.game_speed < settings.MAX_GAME_SPEED:
+        if self.boosting_to_200:
+            self.game_speed = settings.MAX_GAME_SPEED * 2
+            self.score += 2
+            self.player.activate_powerup('shield')
+            if self.score >= 200:
+                self.boosting_to_200 = False
+                self.game_speed = settings.INITIAL_GAME_SPEED
+        elif self.boss_fight_active and self.game_speed > settings.INITIAL_GAME_SPEED:
+            # Giảm tốc từ từ khi gặp boss (mượt hơn)
+            self.game_speed -= max(0.01, (self.game_speed - settings.INITIAL_GAME_SPEED) * 0.008)
+            if self.game_speed < settings.INITIAL_GAME_SPEED:
+                self.game_speed = settings.INITIAL_GAME_SPEED
+        elif not self.boss_fight_active and self.game_speed < settings.MAX_GAME_SPEED:
             self.game_speed += settings.SPEED_INCREMENT
         
         # Tốc độ thực tế (có tính dash speed cho obstacles & powerups)
@@ -241,6 +288,9 @@ class PlayState:
         # --- Cập nhật obstacles ---
         for obstacle in self.obstacles:
             obstacle.update(active_speed)
+            if not getattr(obstacle, 'passed', False) and obstacle.x + obstacle.width < self.player.x:
+                obstacle.passed = True
+                self.combo += 1
         self.obstacles = [obs for obs in self.obstacles if not obs.is_off_screen()]
         
         # --- Cập nhật powerups ---
@@ -295,7 +345,7 @@ class PlayState:
         if not self.boss_fight_active and self.boss_defeated_count == 0 and self.score >= settings.BOSS_FIRST_SCORE:
             self.boss_fight_active = True
             self.obstacles.clear()  # Xoá quái cũ để nhường chỗ cho boss
-            self.game_speed = settings.INITIAL_GAME_SPEED  # Trả tốc độ về ban đầu để không bị chóng mặt
+            # self.game_speed = settings.INITIAL_GAME_SPEED  # Chuyển sang giảm dần ở trên
             try:
                 from entities.boss import Boss
                 self.boss = Boss()
@@ -310,11 +360,19 @@ class PlayState:
             if self.boss.pattern_timer <= 0:
                 new_bullets = self.boss.get_next_pattern()
                 self.boss_bullets.extend(new_bullets)
-                self.boss.pattern_timer = settings.BOSS_PATTERN_INTERVAL
+                
+                # Boss Phase 2 (HP < 50% -> Tăng tốc bắn)
+                interval = settings.BOSS_PATTERN_INTERVAL
+                if self.boss.hp < self.boss.max_hp / 2:
+                    interval = int(interval * 0.6)
+                self.boss.pattern_timer = interval
                 
             # Cập nhật đạn boss
             for bullet in self.boss_bullets:
                 bullet.update()
+                if not getattr(bullet, 'passed', False) and bullet.x + bullet.radius < self.player.x:
+                    bullet.passed = True
+                    self.combo += 1
             self.boss_bullets = [b for b in self.boss_bullets if not b.is_off_screen()]
             
             # Spawn Counter Shield item
@@ -413,6 +471,8 @@ class PlayState:
                 if fb_rect.colliderect(obstacle.get_rect()):
                     fireball.alive = False
                     self.obstacles.remove(obstacle)
+                    if not self.boss_fight_active:
+                        self.combo += 1
                     break
         
         # Va chạm player với obstacle
@@ -429,6 +489,7 @@ class PlayState:
                     continue
                 
                 # Nhận sát thương
+                self.combo = 0 # Reset combo
                 is_dead = self.player.take_damage(getattr(obstacle, 'damage', 1))
                 self._apply_obstacle_hit_effect(obstacle)
                 if getattr(obstacle, 'consume_on_hit', False) and obstacle in self.obstacles:
@@ -456,6 +517,7 @@ class PlayState:
                         continue
                     
                     # Nhận sát thương cho cả đội
+                    self.combo = 0 # Reset combo
                     is_dead = self.player.take_damage(getattr(obstacle, 'damage', 1))
                     self._apply_obstacle_hit_effect(obstacle)
                     if obstacle in self.obstacles:
@@ -514,6 +576,7 @@ class PlayState:
                     continue
                     
                 # Nhận dmg
+                self.combo = 0 # Reset combo
                 is_dead = self.player.take_damage(settings.BOSS_BULLET_DAMAGE)
                 if bullet in self.boss_bullets:
                     self.boss_bullets.remove(bullet)
@@ -523,8 +586,20 @@ class PlayState:
                     return
         
         # --- Cập nhật score ---
+        combo_multiplier = 1.0
+        if self.combo >= 200:
+            combo_multiplier = 2.0
+        elif self.combo >= 100:
+            combo_multiplier = 1.5
+        elif self.combo >= 70:
+            combo_multiplier = 1.3
+        elif self.combo >= 50:
+            combo_multiplier = 1.2
+        elif self.combo >= 20:
+            combo_multiplier = 1.1
+
         score_multiplier = 2 if self.player.has_powerup('double_score') else 1
-        self.score += settings.SCORE_INCREMENT * (active_speed / settings.INITIAL_GAME_SPEED) * score_multiplier
+        self.score += settings.SCORE_INCREMENT * (active_speed / settings.INITIAL_GAME_SPEED) * score_multiplier * combo_multiplier
         if self.score > self.highscore:
             self.highscore = self.score
         
@@ -671,32 +746,53 @@ class PlayState:
                 max_timer = settings.POWERUP_DURATION
                 if p_type == 'slow_down' and timer > settings.POWERUP_DURATION:
                     max_timer = settings.SPIDER_SLOW_DURATION
+                elif p_type == 'counter_shield':
+                    max_timer = settings.COUNTER_SHIELD_DURATION
+                elif timer > settings.POWERUP_DURATION:
+                    max_timer = 600
                 active_buffs.append({
                     'id': p_type,
                     'timer': timer,
                     'max_timer': max_timer
                 })
-        if self.player_has_counter:
-            active_buffs.append({
-                'id': 'counter_shield',
-                'timer': self.counter_shield_timer,
-                'max_timer': settings.COUNTER_SHIELD_DURATION
-            })
 
         try:
             self.hud.draw(self.screen, self.score, self.highscore, self.game_speed,
-                          self.player, self.companions, active_buffs=active_buffs)
+                          self.player, self.companions, active_buffs=active_buffs,
+                          combo=self.combo, inventory=self.inventory, omni_uses=getattr(self, 'omni_buff_uses', 0))
             if self.boss and self.boss.state != self.boss.STATE_DYING:
                 self.hud.draw_boss_hp_bar(self.screen, self.boss)
         except TypeError:
             try:
                 self.hud.draw(self.screen, self.score, self.highscore, self.game_speed,
-                              self.player, self.companions)
+                              self.player, self.companions, combo=self.combo, inventory=self.inventory)
             except TypeError:
                 self.hud.draw(self.screen, self.score, self.highscore, self.game_speed)
         
-        # 8. Giao diện Pause
-        if self.is_paused:
+        # 8. Giao diện Pause/Boost
+        if self.show_boost_prompt:
+            overlay = pygame.Surface((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 160))
+            self.screen.blit(overlay, (0, 0))
+            
+            try:
+                from utils.asset_loader import load_font
+                font_title = load_font(72)
+                font_hint  = load_font(28)
+            except Exception:
+                font_title = pygame.font.Font(None, 72)
+                font_hint  = pygame.font.Font(None, 28)
+            
+            title_text = font_title.render("Use Boost?", True, settings.COLOR_TITLE)
+            title_rect = title_text.get_rect(center=(settings.SCREEN_WIDTH // 2, settings.SCREEN_HEIGHT // 2 - 40))
+            
+            hint_text = font_hint.render("SPACE / ENTER to Use  |  ESC to Skip", True, settings.COLOR_TEXT)
+            hint_rect = hint_text.get_rect(center=(settings.SCREEN_WIDTH // 2, settings.SCREEN_HEIGHT // 2 + 30))
+            
+            self.screen.blit(title_text, title_rect)
+            self.screen.blit(hint_text, hint_rect)
+            
+        elif self.is_paused:
             overlay = pygame.Surface((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 160))
             self.screen.blit(overlay, (0, 0))
@@ -826,5 +922,5 @@ class PlayState:
         bg_snapshot = self.death_snapshot if self.death_snapshot else self.screen.copy()
         
         self.game_manager.change_state(
-            GameOverState(self.game_manager, self.score, self.highscore, bg_snapshot)
+            GameOverState(self.game_manager, self.score, self.highscore, bg_snapshot, previous_play_state=self)
         )

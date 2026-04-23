@@ -82,8 +82,10 @@ class CharacterSelectState:
         ]
 
         self.back_button = pygame.Rect(34, settings.SCREEN_HEIGHT - 76, 170, 54)
+        self.shop_button = pygame.Rect(settings.SCREEN_WIDTH - 204, settings.SCREEN_HEIGHT - 76, 170, 54)
         self.hovered_card = -1
         self.back_hovered = False
+        self.shop_hovered = False
         self.frame_count = 0
         self.selected_card = -1
         self.select_timer = 0
@@ -154,6 +156,7 @@ class CharacterSelectState:
                 break
 
         self.back_hovered = self.back_button.collidepoint(mouse_pos)
+        self.shop_hovered = self.shop_button.collidepoint(mouse_pos)
 
         for event in events:
             if event.type == pygame.QUIT:
@@ -169,6 +172,10 @@ class CharacterSelectState:
                     from states.menu_state import MenuState
 
                     self.game_manager.change_state(MenuState(self.game_manager))
+                elif self.shop_hovered:
+                    play_sound(self.click_sound, volume=0.5)
+                    from states.shop_state import ShopState
+                    self.game_manager.change_state(ShopState(self.game_manager))
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
@@ -209,6 +216,7 @@ class CharacterSelectState:
             self._draw_character_card(i, char_info)
         self._draw_random_card()
         self._draw_back_button()
+        self._draw_shop_button()
 
         footer_text = self.hint_font.render(
             "Click to select  |  1-4 Quick Select  |  ESC to go back",
@@ -376,6 +384,22 @@ class CharacterSelectState:
 
         self._draw_ornate_panel(draw_rect, self.PANEL_HOVER if self.back_hovered else self.PANEL_MID)
         label = self.button_font.render("< BACK", True, self.TEXT_GOLD)
+        self._draw_text_surface(
+            label,
+            label.get_rect(center=draw_rect.center),
+            shadow=self.TEXT_SHADOW,
+            outline=(58, 28, 29),
+        )
+
+    def _draw_shop_button(self):
+        draw_rect = self.shop_button.move(0, -3 if self.shop_hovered else 0)
+        if self.shop_hovered:
+            glow = pygame.Surface((draw_rect.width + 28, draw_rect.height + 24), pygame.SRCALPHA)
+            pygame.draw.rect(glow, (255, 196, 96, 42), glow.get_rect(), border_radius=10)
+            self.screen.blit(glow, (draw_rect.x - 14, draw_rect.y - 12))
+
+        self._draw_ornate_panel(draw_rect, self.PANEL_HOVER if self.shop_hovered else self.PANEL_MID)
+        label = self.button_font.render("SHOP >", True, self.TEXT_GOLD)
         self._draw_text_surface(
             label,
             label.get_rect(center=draw_rect.center),

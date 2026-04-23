@@ -20,22 +20,27 @@ class AdminConfigState:
         self.params = [
             {'id': 'BOSS_FIRST_SCORE', 'name': 'Boss Spawn Score', 'desc': 'Score needed to encounter the boss', 'val': 500.0, 'step': 50.0, 'min': 10.0, 'max': 5000.0},
             {'id': 'BOSS_HP', 'name': 'Boss Max HP', 'desc': 'Total health points of the boss', 'val': 100.0, 'step': 10.0, 'min': 10.0, 'max': 1000.0},
-            {'id': 'COUNTER_DAMAGE', 'name': 'Shield Counter DMG', 'desc': 'Damage dealt when reflecting boss bullets', 'val': 1.0, 'step': 1.0, 'min': 1.0, 'max': 100.0},
-            {'id': 'BOSS_INTERVAL', 'name': 'Boss Attack Interval', 'desc': 'Frames between boss bullet waves (lower = faster)', 'val': 190.0, 'step': 10.0, 'min': 30.0, 'max': 300.0},
-            {'id': 'SHIELD_DURATION', 'name': 'Knight Shield Dur', 'desc': 'Frames the Knight\'s skill lasts (60 = 1s)', 'val': 600.0, 'step': 60.0, 'min': 60.0, 'max': 1200.0},
+            {'id': 'COUNTER_DAMAGE', 'name': 'Shield Counter DMG', 'desc': 'Damage dealt when reflecting boss bullets', 'val': 2.0, 'step': 1.0, 'min': 1.0, 'max': 100.0},
+            {'id': 'BOSS_INTERVAL', 'name': 'Boss Attack Interval', 'desc': 'Frames between boss bullet waves', 'val': 190.0, 'step': 10.0, 'min': 30.0, 'max': 300.0},
+            {'id': 'BOSS_BULLET_SPEED', 'name': 'Boss Bullet Speed', 'desc': 'Speed of boss projectiles', 'val': 8.0, 'step': 1.0, 'min': 5.0, 'max': 30.0},
+            {'id': 'PLAYER_MAX_HP', 'name': 'Player Max HP', 'desc': 'Base health points for the player', 'val': 2.0, 'step': 1.0, 'min': 1.0, 'max': 10.0},
+            {'id': 'DASH_COOLDOWN', 'name': 'Dash Cooldown', 'desc': 'Frames before next dash (60 = 1s)', 'val': 120.0, 'step': 10.0, 'min': 30.0, 'max': 300.0},
+            {'id': 'DASH_DURATION', 'name': 'Dash Duration', 'desc': 'Frames dash lasts (60 = 1s)', 'val': 60.0, 'step': 10.0, 'min': 10.0, 'max': 120.0},
+            {'id': 'SHIELD_DURATION', 'name': 'Knight Shield Dur', 'desc': 'Frames the Knight\'s skill lasts', 'val': 600.0, 'step': 60.0, 'min': 60.0, 'max': 1200.0},
             {'id': 'COOLDOWN_MULTI', 'name': 'Cooldown Multiplier', 'desc': 'Skill cooldown speed (0.1 = extremely fast)', 'val': 1.0, 'step': 0.1, 'min': 0.1, 'max': 2.0},
         ]
         
         # UI Layout
-        self.start_y = 160
-        self.row_height = 65
+        self.start_y = 180
+        self.row_height = 80
         
         # Generate Rects for [-] and [+] and hitboxes
         self.buttons = []
-        center_x = settings.SCREEN_WIDTH // 2
-        
         for i, param in enumerate(self.params):
-            y = self.start_y + i * self.row_height
+            col = i % 2
+            row = i // 2
+            center_x = settings.SCREEN_WIDTH // 4 if col == 0 else (settings.SCREEN_WIDTH * 3) // 4
+            y = self.start_y + row * self.row_height
             minus_rect = pygame.Rect(center_x + 50, y - 15, 30, 30)
             plus_rect = pygame.Rect(center_x + 180, y - 15, 30, 30)
             self.buttons.append({
@@ -47,7 +52,7 @@ class AdminConfigState:
             
         # Test Game Button
         self.test_btn = pygame.Rect(
-            center_x - settings.BUTTON_WIDTH // 2,
+            (settings.SCREEN_WIDTH - settings.BUTTON_WIDTH) // 2,
             settings.SCREEN_HEIGHT - 120,
             settings.BUTTON_WIDTH,
             settings.BUTTON_HEIGHT
@@ -57,12 +62,17 @@ class AdminConfigState:
         # Back Menu Button
         self.back_btn = pygame.Rect(20, settings.SCREEN_HEIGHT - 70, 150, 45)
         self.back_hovered = False
+        
+        # Max Money Button
+        self.money_btn = pygame.Rect(settings.SCREEN_WIDTH - 220, settings.SCREEN_HEIGHT - 70, 200, 45)
+        self.money_hovered = False
 
     def handle_events(self, events):
         mouse_pos = pygame.mouse.get_pos()
         
         self.test_hovered = self.test_btn.collidepoint(mouse_pos)
         self.back_hovered = self.back_btn.collidepoint(mouse_pos)
+        self.money_hovered = self.money_btn.collidepoint(mouse_pos)
         
         for i, btns in enumerate(self.buttons):
             btns['hover_minus'] = btns['minus'].collidepoint(mouse_pos)
@@ -92,6 +102,19 @@ class AdminConfigState:
                 elif self.back_hovered:
                     from states.menu_state import MenuState
                     self.game_manager.change_state(MenuState(self.game_manager))
+                    
+                # Nút Money
+                elif self.money_hovered:
+                    settings.IS_ADMIN_TEST_MODE = True
+                    from utils.score_manager import load_save_data, save_save_data
+                    save_data = load_save_data()
+                    save_data['money'] = 9999
+                    save_save_data(save_data)
+                    try:
+                        from utils.asset_loader import load_sound, play_sound
+                        play_sound(load_sound(settings.UI_CLICK_SOUND), volume=0.8)
+                    except Exception:
+                        pass
             
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
@@ -104,10 +127,16 @@ class AdminConfigState:
         # Đọc dữ liệu từ self.params
         data = {p['id']: p['val'] for p in self.params}
         
+        settings.IS_ADMIN_TEST_MODE = True
+        
         settings.BOSS_FIRST_SCORE = int(data['BOSS_FIRST_SCORE'])
         settings.BOSS_HP = int(data['BOSS_HP'])
         settings.COUNTER_DAMAGE_TO_BOSS = int(data['COUNTER_DAMAGE'])
         settings.BOSS_PATTERN_INTERVAL = int(data['BOSS_INTERVAL'])
+        settings.BOSS_BULLET_SPEED = int(data['BOSS_BULLET_SPEED'])
+        settings.PLAYER_MAX_HP = int(data['PLAYER_MAX_HP'])
+        settings.DASH_COOLDOWN = int(data['DASH_COOLDOWN'])
+        settings.DASH_DURATION = int(data['DASH_DURATION'])
         settings.SKILL_KNIGHT_DURATION = int(data['SHIELD_DURATION'])
         
         # Cooldown multi
@@ -134,9 +163,11 @@ class AdminConfigState:
         self.screen.blit(warning, warning.get_rect(center=(settings.SCREEN_WIDTH // 2, 115)))
         
         # Vẽ danh sách tham số
-        center_x = settings.SCREEN_WIDTH // 2
         for i, param in enumerate(self.params):
-            y = self.start_y + i * self.row_height
+            col = i % 2
+            row = i // 2
+            center_x = settings.SCREEN_WIDTH // 4 if col == 0 else (settings.SCREEN_WIDTH * 3) // 4
+            y = self.start_y + row * self.row_height
             
             # Label
             lbl = self.label_font.render(param['name'] + ":", True, settings.COLOR_WHITE)
@@ -176,6 +207,9 @@ class AdminConfigState:
         
         # Back Button
         self._draw_btn(self.back_btn, "<- Exit Admin", self.back_hovered, is_main=False)
+        
+        # Money Button
+        self._draw_btn(self.money_btn, "+9999 Money", self.money_hovered, is_main=False)
 
     def _draw_btn(self, rect, text, hovered, is_main=False):
         color = settings.COLOR_BUTTON_HOVER if hovered else settings.COLOR_BUTTON

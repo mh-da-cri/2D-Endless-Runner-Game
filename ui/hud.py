@@ -20,9 +20,15 @@ class HUD:
         self.best_font = load_font(23)
         self.frame_count = 0
 
-    def draw(self, screen, score, highscore, game_speed=None, player=None, companions=None, active_buffs=None):
+    def draw(self, screen, score, highscore, game_speed=None, player=None, companions=None, active_buffs=None, combo=0, inventory=None, omni_uses=0):
         self.frame_count += 1
         self._draw_score(screen, int(score), int(highscore))
+        
+        if combo > 0:
+            self._draw_combo(screen, combo)
+            
+        if inventory and inventory.get('omni_buff', 0) > 0 and omni_uses < 3:
+            self._draw_omni_buff(screen, inventory.get('omni_buff', 0), omni_uses)
 
         if player:
             self._draw_hp_bar(screen, player)
@@ -63,15 +69,42 @@ class HUD:
         self._draw_text_with_shadow(screen, best_label, (best_x, best_y))
         self._draw_text_with_shadow(screen, best_value, (best_x + best_label.get_width() + 8, best_y))
 
+    def _draw_combo(self, screen, combo):
+        combo_text = f"Combo: {combo}"
+        multiplier = "1.0x"
+        if combo >= 200: multiplier = "2.0x"
+        elif combo >= 100: multiplier = "1.5x"
+        elif combo >= 70: multiplier = "1.3x"
+        elif combo >= 50: multiplier = "1.2x"
+        elif combo >= 20: multiplier = "1.1x"
+        
+        if multiplier != "1.0x":
+            combo_text += f" ({multiplier})"
+            
+        color = (255, 215, 0) if combo >= 100 else (255, 255, 255)
+        text_surf = self.score_font.render(combo_text, True, color)
+        # Draw below score panel
+        panel = pygame.Rect(settings.SCREEN_WIDTH - 238, 8, 220, 76)
+        x = panel.centerx - text_surf.get_width() // 2
+        y = panel.bottom + 10
+        self._draw_text_with_shadow(screen, text_surf, (x, y))
+
+    def _draw_omni_buff(self, screen, count, uses):
+        text = f"[Q] Omni Buff: {count} (Used: {uses}/3)"
+        text_surf = self.small_font.render(text, True, (200, 200, 255))
+        screen.blit(text_surf, (15, settings.SCREEN_HEIGHT - 35))
+
     def _draw_hp_bar(self, screen, player):
-        panel = pygame.Rect(8, 8, 242, 44)
+        heart_size = 27
+        heart_gap = 14
+        
+        panel_width = max(242, 76 + player.max_hp * (heart_size + heart_gap) - heart_gap + 20)
+        panel = pygame.Rect(8, 8, panel_width, 44)
         self._draw_pixel_panel(screen, panel)
 
         hp_label = self.hp_font.render("HP", True, (72, 38, 24))
         screen.blit(hp_label, (panel.x + 16, panel.y + 13))
 
-        heart_size = 27
-        heart_gap = 14
         heart_start_x = panel.x + 76
 
         for i in range(player.max_hp):

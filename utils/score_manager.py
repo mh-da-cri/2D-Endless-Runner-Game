@@ -1,48 +1,77 @@
 """
-Score Manager - Quản lý đọc/ghi điểm cao nhất
-Lưu trữ highscore vào file JSON trong thư mục data/.
+Score Manager - Quản lý đọc/ghi save data
+Lưu trữ highscore, money, inventory vào file JSON trong thư mục data/.
 """
 
 import os
 import json
+import copy
 import settings
 
+SAVE_FILE = "data/save.json"
+_test_save_data = None
 
-def load_highscore():
-    """
-    Đọc điểm cao nhất từ file JSON.
-    
-    Returns:
-        int: Điểm cao nhất, trả về 0 nếu file chưa tồn tại
-    """
+def get_default_save_data():
+    return {
+        "highscore": 0,
+        "money": 0,
+        "inventory": {
+            "max_hp_upgrades": 0,
+            "revive": 0,
+            "boost": 0,
+            "omni_buff": 0
+        }
+    }
+
+def _real_load():
+    default_data = get_default_save_data()
     try:
-        with open(settings.HIGHSCORE_FILE, "r") as f:
-            data = json.load(f)
-            return data.get("highscore", 0)
+        if os.path.exists(SAVE_FILE):
+            with open(SAVE_FILE, "r") as f:
+                data = json.load(f)
+                return _merge_dicts(default_data, data)
+        elif os.path.exists(settings.HIGHSCORE_FILE):
+            with open(settings.HIGHSCORE_FILE, "r") as f:
+                old_data = json.load(f)
+                default_data["highscore"] = old_data.get("highscore", 0)
+                return default_data
     except (FileNotFoundError, json.JSONDecodeError):
-        return 0
+        pass
+    return default_data
 
+def load_save_data():
+    """Đọc dữ liệu save từ file JSON."""
+    if getattr(settings, 'IS_ADMIN_TEST_MODE', False):
+        global _test_save_data
+        if _test_save_data is not None:
+            return copy.deepcopy(_test_save_data)
+        else:
+            _test_save_data = _real_load()
+            return copy.deepcopy(_test_save_data)
+    return _real_load()
 
-def save_highscore(score):
-    """
-    Lưu điểm cao nhất vào file JSON.
-    Chỉ lưu nếu score cao hơn highscore hiện tại.
-    
-    Args:
-        score: Điểm số mới
-    
-    Returns:
-        bool: True nếu đã lưu kỷ lục mới, False nếu không
-    """
-    current_high = load_highscore()
-    
-    if score > current_high:
-        # Đảm bảo thư mục data/ tồn tại
-        os.makedirs(os.path.dirname(settings.HIGHSCORE_FILE), exist_ok=True)
+def save_save_data(data):
+    """Lưu dữ liệu save vào file JSON."""
+    if getattr(settings, 'IS_ADMIN_TEST_MODE', False):
+        global _test_save_data
+        _test_save_data = copy.deepcopy(data)
+        return
         
-        with open(settings.HIGHSCORE_FILE, "w") as f:
-            json.dump({"highscore": int(score)}, f, indent=2)
-        
-        return True
-    
-    return False
+    os.makedirs(os.path.dirname(SAVE_FILE), exist_ok=True)
+    with open(SAVE_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+def reset_test_save():
+    global _test_save_data
+    _test_save_data = None
+
+def _merge_dicts(default_dict, user_dict):
+    """Đệ quy merge 2 dict, giữ lại cấu trúc của default_dict."""
+    merged = default_dict.copy()
+    for key, value in user_dict.items():
+        if key in merged:
+            if isinstance(merged[key], dict) and isinstance(value, dict):
+                merged[key] = _merge_dicts(merged[key], value)
+            else:
+                merged[key] = value
+    return merged

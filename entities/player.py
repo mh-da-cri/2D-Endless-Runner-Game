@@ -10,6 +10,7 @@ import os
 import settings
 from utils.spritesheet import SpriteSheet
 from utils.asset_loader import load_image, load_font, load_sound, play_sound
+from utils.score_manager import load_save_data
 
 
 class Player:
@@ -33,6 +34,7 @@ class Player:
         # Duck / Cúi
         self.is_ducking = False
         self.is_dead = False
+        self.death_sound_played = False
         
         # Dash
         self.is_dashing = False
@@ -45,7 +47,9 @@ class Player:
         
         # --- CHARACTER & HP SYSTEM ---
         self.character_type = character_type
-        self.max_hp = settings.PLAYER_MAX_HP
+        save_data = load_save_data()
+        hp_upgrades = save_data.get('inventory', {}).get('max_hp_upgrades', 0)
+        self.max_hp = settings.PLAYER_MAX_HP + hp_upgrades
         self.hp = self.max_hp
         self.invincible_timer = 0
         
@@ -64,7 +68,8 @@ class Player:
             'double_score': {'label': '2x Score', 'color': settings.COLOR_POWERUP_SCORE},
             'slow_down': {'label': 'Slow Down', 'color': settings.COLOR_POWERUP_SLOW},
             'speed_up': {'label': 'Speed Up', 'color': settings.COLOR_POWERUP_SPEED},
-            'high_jump': {'label': 'High Jump', 'color': settings.COLOR_POWERUP_JUMP}
+            'high_jump': {'label': 'High Jump', 'color': settings.COLOR_POWERUP_JUMP},
+            'counter_shield': {'label': 'Counter Shield', 'color': settings.COLOR_COUNTER_SHIELD}
         }
         
         # --- EFFECTS ---
@@ -152,6 +157,7 @@ class Player:
         self.heal_sound = load_sound(settings.PRIEST_HEAL_SOUND)
         self.sorcerer_skill_sound = load_sound(settings.SORCERER_SKILL_SOUND)
         self.powerup_pickup_sound = load_sound(settings.POWERUP_PICKUP_SOUND)
+        self.death_sound = self._load_death_sound()
         
     def _load_animations(self):
         """Cắt ảnh từ Sprite Sheet."""
@@ -654,7 +660,7 @@ class Player:
         # Cập nhật hitbox
         self.rect.update(self.x, self.y, self.width, self.height)
     
-    def draw(self, screen):
+    def draw(self, screen, draw_individual_shield=True):
         """Vẽ player lên màn hình - route theo loại nhân vật."""
         
         # --- XÁC CHẾT (tất cả nhân vật dùng dead_frame) ---
@@ -714,12 +720,12 @@ class Player:
                 screen.blit(current_image, image_rect)
         
         # Skill shield Knight - vòng tròn bọc quanh nhân vật
-        if self.skill_active and self.character_type == settings.CHARACTER_KNIGHT:
+        if not is_flashing and draw_individual_shield and self.skill_active and self.character_type == settings.CHARACTER_KNIGHT:
             self.shield_pulse = (self.shield_pulse + 0.1) % (2 * math.pi)
             self._draw_shield_sprite(screen, settings.COLOR_SHIELD_SKILL)
         
         # Powerup shield - vòng tròn xanh dương bọc quanh nhân vật (tất cả nhân vật sprite)
-        if self.has_powerup('shield') and self.animations:
+        if not is_flashing and draw_individual_shield and self.has_powerup('shield') and self.animations:
             if not (self.skill_active and self.character_type == settings.CHARACTER_KNIGHT):
                 self.shield_pulse = (self.shield_pulse + 0.08) % (2 * math.pi)
             self._draw_shield_sprite(screen, settings.COLOR_POWERUP_SHIELD, base_padding=24)
@@ -841,11 +847,39 @@ class Player:
         elif self.character_type == settings.CHARACTER_PRIEST:
             return settings.SKILL_PRIEST_COOLDOWN
         return 0
+
+    def _load_death_sound(self):
+        """Load death scream based on the selected character."""
+        if self.character_type == settings.CHARACTER_KNIGHT:
+            return load_sound(settings.KNIGHT_DEATH_SOUND)
+        if self.character_type == settings.CHARACTER_SORCERER:
+            return load_sound(settings.SORCERER_DEATH_SOUND)
+        if self.character_type == settings.CHARACTER_PRIEST:
+            return load_sound(settings.PRIEST_DEATH_SOUND)
+        return None
+
+    def _play_death_sound(self):
+        """Play the death scream only once for the current life."""
+        if self.death_sound_played:
+            return
+
+        play_sound(self.death_sound, volume=0.55)
+        self.death_sound_played = True
+
+    def _play_hurt_sound(self, sound=None, volume=None):
+        """Play a softer hurt sound when taking non-lethal damage."""
+        hurt_sound = sound if sound is not None else self.death_sound
+        if hurt_sound is None:
+            return
+        play_sound(
+            hurt_sound,
+            volume=settings.PLAYER_HURT_SOUND_VOLUME if volume is None else volume,
+        )
     
-    def take_damage(self):
+    def take_damage(self, amount=1, hurt_sound=None, hurt_volume=None):
         """
         Nhận sát thương.
-        Giảm 1 HP và kích hoạt invincibility frames.
+        Giảm HP và kích hoạt invincibility frames.
         
         Returns:
             bool: True nếu nhân vật chết (HP <= 0)
@@ -863,11 +897,14 @@ class Player:
             return False
         
         # Nhận sát thương
-        self.hp -= 1
+        self.hp -= amount
         
         if self.hp <= 0:
+            self._play_death_sound()
             return True  # Chết
         
+        self._play_hurt_sound(hurt_sound, hurt_volume)
+
         # Kích hoạt invincibility
         self.invincible_timer = settings.INVINCIBILITY_FRAMES
         return False
@@ -930,9 +967,9 @@ class Player:
         
         return None
     
-    def activate_powerup(self, p_type):
+    def activate_powerup(self, p_type, duration=None):
         """Kích hoạt một power-up."""
-        self.active_powerups[p_type] = settings.POWERUP_DURATION
+        self.active_powerups[p_type] = duration if duration is not None else settings.POWERUP_DURATION
         play_sound(self.powerup_pickup_sound, volume=0.5)
         
     def has_powerup(self, p_type):
@@ -1137,6 +1174,7 @@ class Player:
         self.is_ducking = False
         self.is_dashing = False
         self.is_dead = False
+        self.death_sound_played = False
         self.dash_timer = 0
         self.dash_cooldown_timer = 0
         self.can_dash = True

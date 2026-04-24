@@ -12,6 +12,16 @@ SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
 TITLE = "Knight Runner - Endless Fantasy"
+MENU_MUSIC = "Endgame by _91ultra - [Trap Music].mp3"
+COMBAT_MUSIC = "Rising.mp3"
+GAMEOVER_MUSIC = MENU_MUSIC
+BACKGROUND_MUSIC = MENU_MUSIC
+BACKGROUND_MUSIC_VOLUME = 0.35
+KNIGHT_DEATH_SOUND = "aargh5.ogg"
+SORCERER_DEATH_SOUND = "aw01.ogg"
+PRIEST_DEATH_SOUND = "wscream_2.wav"
+BOSS_PLAYER_HURT_SOUND = "creature_hurt_02.ogg"
+BOSS_DEATH_SOUND = "zombie-17.wav"
 
 # ============================================================
 # PHYSICS / VẬT LÝ
@@ -38,11 +48,16 @@ PRIEST_HEAL_SOUND = "healspell2.aif"
 SORCERER_SKILL_SOUND = "Magic Missiles.wav"
 POWERUP_PICKUP_SOUND = "itempickup.mp3"
 UI_CLICK_SOUND = "Selection Click.wav"
+OBSTACLE_SPIDER_DEATH_SOUND = "blade_02.ogg"
+OBSTACLE_SKELETON_DEATH_SOUND = "ghost.wav"
+OBSTACLE_BAT_DEATH_SOUND = "Monster-1.wav"
 SPRITE_FRAME_WIDTH = 44
 SPRITE_FRAME_HEIGHT = 48
 SPRITE_SCALE = 2.5             # ≈120px visual (1.5× obstacle max 80px)
 ANIMATION_COOLDOWN = 100      # Thời gian chuyển frame (ms)
 HIT_STOP_FRAMES = 45          # Thời gian khựng hình khi đâm quái (frames) ~0.75 giây
+PLAYER_HURT_SOUND_VOLUME = 0.22
+BOSS_HURT_SOUND_VOLUME = 0.38
 
 # Sprite Configuration cho sorlosheet.png (Sorcerer)
 SORCERER_SPRITE_IMAGE = "sorlosheet.png"
@@ -67,8 +82,8 @@ DOUBLE_JUMP_FORCE = -13       # Lực nhảy lần 2 (yếu hơn một chút)
 MAX_JUMPS = 2                 # Số lần nhảy tối đa (double jump)
 JUMP_BUFFER_FRAMES = 9        # Thời gian nhớ phím nhảy trước khi chạm đất (frames) ~0.15s
 
-DASH_DURATION = 45            # Thời gian dash (frames) = 0.75 giây (60 FPS)
-DASH_COOLDOWN = 180           # Cooldown giữa các lần dash (frames) = 3.0 giây
+DASH_DURATION = 60            # Thời gian dash (frames) = 1.0 giây (60 FPS)
+DASH_COOLDOWN = 120           # Cooldown giữa các lần dash (frames) = 2.0 giây
 # Ghi chú: Hệ số tốc độ khi dash = 1.5x tốc độ game hiện tại (xem play_state.py)
 
 DUCK_SPEED_BONUS = 1          # Bonus tốc độ khi cúi (player hơi trượt nhanh hơn)
@@ -76,7 +91,7 @@ DUCK_SPEED_BONUS = 1          # Bonus tốc độ khi cúi (player hơi trượt
 # ============================================================
 # HP SYSTEM / HỆ THỐNG MÁU
 # ============================================================
-PLAYER_MAX_HP = 3             # Số máu tối đa
+PLAYER_MAX_HP = 2             # Số máu tối đa
 INVINCIBILITY_FRAMES = 120    # 2 giây bất tử sau khi bị đánh (60 FPS)
 
 # ============================================================
@@ -108,9 +123,9 @@ SKILL_PRIEST_COOLDOWN = 1800  # Cooldown: 30 giây (30 * 60 frames)
 # ============================================================
 # OBSTACLES / CHƯỚNG NGẠI VẬT
 # ============================================================
-OBSTACLE_MIN_WIDTH = 40       # Kích thước tối thiểu
+OBSTACLE_MIN_WIDTH = 55       # Kích thước tối thiểu
 OBSTACLE_MAX_WIDTH = 70       # Kích thước tối đa
-OBSTACLE_MIN_HEIGHT = 50
+OBSTACLE_MIN_HEIGHT = 60
 OBSTACLE_MAX_HEIGHT = 80
 
 # Chướng ngại vật bay (cần cúi để né)
@@ -118,6 +133,15 @@ FLYING_OBSTACLE_Y_MIN = 480   # Vị trí Y tối thiểu (cao nhất) của obs
 FLYING_OBSTACLE_Y_MAX = 560   # Vị trí Y tối đa (thấp nhất) của obstacle bay
 FLYING_OBSTACLE_WIDTH = 50
 FLYING_OBSTACLE_HEIGHT = 40
+
+# Nhện đu tơ - đặt ở vùng double jump
+SPIDER_OBSTACLE_CHANCE = 0.18
+SPIDER_WIDTH = 70
+SPIDER_HEIGHT = 42
+SPIDER_Y_MIN = 330
+SPIDER_Y_MAX = 405
+SPIDER_SLOW_DURATION = FPS * 15
+SPIDER_SCORE_PENALTY = 30
 
 # Thời gian spawn (giãn cách rộng hơn)
 MIN_SPAWN_DELAY = 90          # Delay tối thiểu giữa các obstacle (frames)
@@ -207,7 +231,7 @@ COLOR_COMPANION_PICKUP_GLOW = (255, 230, 150) # Hào quang vàng
 # ============================================================
 # HỆ THỐNG ĐỒNG HÀNH
 # ============================================================
-COMPANION_SCORE_MILESTONES = [200, 500]  # Mốc điểm xuất hiện item đồng hành
+COMPANION_SCORE_MILESTONES = [250]  # Mốc điểm xuất hiện item đồng hành (lần sau khi đánh xong boss)
 COMPANION_SCALE = 0.8                    # Tỉ lệ kích thước đồng hành (80%)
 COMPANION_OFFSET_X = -45                 # Khoảng cách X đồng hành sau lưng player
 COMPANION_PICKUP_SIZE = 35               # Kích thước item đồng hành
@@ -226,3 +250,41 @@ HUD_FONT_SIZE = 28
 GAMEOVER_TITLE_SIZE = 64
 GAMEOVER_SCORE_SIZE = 36
 GAMEOVER_HINT_SIZE = 24
+
+# ============================================================
+# BOSS SYSTEM / HỆ THỐNG BOSS
+# ============================================================
+BOSS_FIRST_SCORE = 500             # Mốc điểm boss đầu tiên xuất hiện (chỉ 1 boss)
+BOSS_HP = 100                       # Máu boss
+BOSS_BULLET_DAMAGE = 2              # Sát thương đạn boss lên player
+COUNTER_DAMAGE_TO_BOSS = 2         # Sát thương mỗi lần phản đạn boss
+
+BOSS_WIDTH = 120                    # Kích thước boss
+BOSS_HEIGHT = 150
+BOSS_X = 1050                       # Vị trí X của boss (bên phải màn hình)
+BOSS_Y_CENTER = 480                 # Vị trí Y trung tâm boss (đã hạ thấp để đánh tới/phản đạn)
+BOSS_ENTER_SPEED = 2                # Tốc độ boss bay vào màn hình
+
+# Đạn boss
+BOSS_BULLET_SPEED = 8              # Tốc độ đạn bay
+BOSS_BULLET_SIZE = 12               # Kích thước đạn
+BOSS_PATTERN_INTERVAL = 190         # Khoảng cách giữa các loạt đạn (frames)
+BOSS_BULLETS_PER_WAVE = 5           # Số đạn mỗi loạt cơ bản
+
+# Counter Shield (Khiên phản đạn)
+COUNTER_SHIELD_DURATION = 300       # Duration 5 giây (5 * 60 frames)
+COUNTER_SHIELD_SIZE = 30            # Kích thước item
+COUNTER_SHIELD_SPAWN_MIN = 360      # Spawn tối thiểu mỗi 6 giây
+COUNTER_SHIELD_SPAWN_MAX = 540      # Spawn tối đa mỗi 9 giây
+
+# Màu sắc boss
+COLOR_BOSS_BODY = (140, 30, 30)         # Đỏ tối (boss body)
+COLOR_BOSS_ACCENT = (200, 50, 50)       # Đỏ sáng (chi tiết boss)
+COLOR_BOSS_EYE = (255, 200, 0)          # Vàng (mắt boss)
+COLOR_BOSS_HP_BAR = (220, 40, 40)       # Đỏ (thanh HP boss)
+COLOR_BOSS_HP_BG = (60, 20, 20)         # Nền thanh HP
+COLOR_BOSS_BULLET = (255, 80, 80)       # Đỏ cam (đạn thường)
+COLOR_BOSS_BULLET_DASH = (200, 50, 255) # Tím (đạn bắt buộc dash)
+COLOR_COUNTER_SHIELD = (0, 220, 180)    # Xanh ngọc (khiên counter)
+COLOR_COUNTER_SHIELD_GLOW = (100, 255, 220) # Glow xanh ngọc
+COLOR_COUNTERED_BULLET = (0, 255, 200)  # Đạn sau khi bị counter

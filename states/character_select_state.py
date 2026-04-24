@@ -65,6 +65,7 @@ class CharacterSelectState:
         self.name_font = load_font(36, "georgia")
         self.desc_font = load_font(22, "georgia")
         self.small_font = load_font(17)
+        self.header_subtitle_font = load_font(20, "georgia")
         self.hint_font = load_font(settings.GAMEOVER_HINT_SIZE)
         self.button_font = load_font(25, "georgia")
         self.badge_font = load_font(18)
@@ -101,12 +102,15 @@ class CharacterSelectState:
         target_h = 116
 
         try:
-            from utils.spritesheet import SpriteSheet
-
             w, h = settings.SPRITE_FRAME_WIDTH, settings.SPRITE_FRAME_HEIGHT
             knight_img = load_image(settings.SPRITE_IMAGE, convert_alpha=True)
-            knight_sheet = SpriteSheet(knight_img)
-            self.knight_preview = knight_sheet.get_image(0, 0, w, h, target_h / h)
+            frame = pygame.Surface((w, h), pygame.SRCALPHA)
+            frame.blit(knight_img, (0, 0), (0, 0, w, h))
+            scale = target_h / h
+            self.knight_preview = pygame.transform.scale(
+                frame,
+                (int(w * scale), target_h),
+            )
         except Exception:
             pass
 
@@ -256,15 +260,21 @@ class CharacterSelectState:
         panel = pygame.Rect(0, 54, 700, 116)
         panel.centerx = settings.SCREEN_WIDTH // 2
         self._draw_ornate_panel(panel, self.PANEL_DARK, large=True)
-        self._draw_header_scrollwork(panel)
 
         title = self.title_font.render("CHOOSE YOUR HERO", True, self.TEXT_GOLD)
         title_rect = title.get_rect(center=(panel.centerx, panel.centery - 3))
         self._draw_text_surface(title, title_rect, shadow=self.TEXT_SHADOW, outline=(58, 28, 29))
 
-        subtitle = self.small_font.render("Pick a champion before entering the forest pass", True, (220, 179, 126))
-        subtitle_rect = subtitle.get_rect(center=(panel.centerx, panel.bottom + 27))
-        self._draw_text_surface(subtitle, subtitle_rect, shadow=(39, 28, 23))
+        subtitle = self.header_subtitle_font.render(
+            "Pick a champion before entering the forest pass",
+            True,
+            (247, 220, 175),
+        )
+        subtitle_plate = pygame.Rect(0, 0, subtitle.get_width() + 34, subtitle.get_height() + 16)
+        subtitle_plate.center = (panel.centerx, panel.bottom + 33)
+        self._draw_subtitle_plate(subtitle_plate)
+        subtitle_rect = subtitle.get_rect(center=subtitle_plate.center)
+        self._draw_text_surface(subtitle, subtitle_rect, shadow=(24, 17, 15), outline=(92, 61, 33))
 
     def _draw_character_card(self, index, char_info):
         rect = self.card_rects[index]
@@ -382,7 +392,11 @@ class CharacterSelectState:
             pygame.draw.rect(glow, (255, 196, 96, 42), glow.get_rect(), border_radius=10)
             self.screen.blit(glow, (draw_rect.x - 14, draw_rect.y - 12))
 
-        self._draw_ornate_panel(draw_rect, self.PANEL_HOVER if self.back_hovered else self.PANEL_MID)
+        self._draw_ornate_panel(
+            draw_rect,
+            self.PANEL_HOVER if self.back_hovered else self.PANEL_MID,
+            show_inner_rules=False,
+        )
         label = self.button_font.render("< BACK", True, self.TEXT_GOLD)
         self._draw_text_surface(
             label,
@@ -398,7 +412,11 @@ class CharacterSelectState:
             pygame.draw.rect(glow, (255, 196, 96, 42), glow.get_rect(), border_radius=10)
             self.screen.blit(glow, (draw_rect.x - 14, draw_rect.y - 12))
 
-        self._draw_ornate_panel(draw_rect, self.PANEL_HOVER if self.shop_hovered else self.PANEL_MID)
+        self._draw_ornate_panel(
+            draw_rect,
+            self.PANEL_HOVER if self.shop_hovered else self.PANEL_MID,
+            show_inner_rules=False,
+        )
         label = self.button_font.render("SHOP >", True, self.TEXT_GOLD)
         self._draw_text_surface(
             label,
@@ -407,7 +425,7 @@ class CharacterSelectState:
             outline=(58, 28, 29),
         )
 
-    def _draw_ornate_panel(self, rect, fill, large=False):
+    def _draw_ornate_panel(self, rect, fill, large=False, show_inner_rules=True):
         cut = 18 if large else 14
         outer = self._beveled_points(rect, cut)
         shadow = [(x + 6, y + 6) for x, y in outer]
@@ -424,8 +442,9 @@ class CharacterSelectState:
         pygame.draw.polygon(self.screen, fill, inner_points)
         pygame.draw.polygon(self.screen, (73, 36, 38), inner_points, 2)
 
-        pygame.draw.line(self.screen, (255, 225, 143), (inner.left + 18, inner.top + 6), (inner.right - 18, inner.top + 6), 2)
-        pygame.draw.line(self.screen, (51, 31, 29), (inner.left + 18, inner.bottom - 7), (inner.right - 18, inner.bottom - 7), 2)
+        if show_inner_rules:
+            pygame.draw.line(self.screen, (255, 225, 143), (inner.left + 18, inner.top + 6), (inner.right - 18, inner.top + 6), 2)
+            pygame.draw.line(self.screen, (51, 31, 29), (inner.left + 18, inner.bottom - 7), (inner.right - 18, inner.bottom - 7), 2)
 
     def _draw_card_corners(self, rect, accent, bright=False):
         color = self.GOLD_LIGHT if bright else self.GOLD
@@ -442,18 +461,36 @@ class CharacterSelectState:
         pygame.draw.rect(self.screen, (*accent, 45 if bright else 24), rect.inflate(-30, -30), 1, border_radius=8)
 
     def _draw_header_scrollwork(self, rect):
-        for x, sx in ((rect.left + 55, 1), (rect.right - 55, -1)):
-            self._draw_scroll(x, rect.centery, sx)
+        ornament_y = rect.top + 45
+        for x, sx in ((rect.left + 34, 1), (rect.right - 34, -1)):
+            self._draw_scroll(x, ornament_y, sx)
 
     def _draw_scroll(self, x, y, sx):
         color = (224, 160, 88)
-        pygame.draw.line(self.screen, (79, 45, 37), (x, y), (x + sx * 75, y), 5)
-        pygame.draw.line(self.screen, color, (x, y), (x + sx * 75, y), 2)
-        for i in range(2):
-            arc = pygame.Rect(x + sx * (18 + i * 28), y - 24 + i * 2, 38, 34)
-            if sx < 0:
-                arc.right = x - (18 + i * 28)
-            pygame.draw.arc(self.screen, color, arc, 0, math.pi * 1.4, 2)
+        dark = (79, 45, 37)
+        span = 48
+        pygame.draw.line(self.screen, dark, (x, y), (x + sx * span, y), 5)
+        pygame.draw.line(self.screen, color, (x, y), (x + sx * span, y), 2)
+        pygame.draw.line(self.screen, color, (x + sx * 10, y), (x + sx * 20, y - 11), 2)
+        pygame.draw.line(self.screen, color, (x + sx * 24, y), (x + sx * 34, y - 8), 2)
+        pygame.draw.line(self.screen, color, (x + sx * 11, y + 1), (x + sx * 21, y + 10), 2)
+        pygame.draw.line(self.screen, color, (x + sx * 26, y + 1), (x + sx * 36, y + 8), 2)
+
+    def _draw_subtitle_plate(self, rect):
+        shadow_rect = rect.move(3, 4)
+        points = self._beveled_points(shadow_rect, 8)
+        pygame.draw.polygon(self.screen, (16, 17, 18), points)
+        pygame.draw.polygon(self.screen, (52, 43, 42), self._beveled_points(rect, 8))
+        pygame.draw.polygon(self.screen, self.GOLD_DARK, self._beveled_points(rect, 8), 3)
+        inner = rect.inflate(-8, -8)
+        pygame.draw.polygon(self.screen, (74, 56, 43), self._beveled_points(inner, 5))
+        pygame.draw.line(
+            self.screen,
+            (255, 223, 154),
+            (inner.left + 12, inner.top + 4),
+            (inner.right - 12, inner.top + 4),
+            1,
+        )
 
     def _draw_key_badge(self, x, y, label, is_hovered):
         rect = pygame.Rect(x, y, 34, 26)

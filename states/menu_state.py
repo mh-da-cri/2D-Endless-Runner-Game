@@ -198,6 +198,7 @@ class MenuState:
         self._draw_crossed_swords(cx, top - 74)
         self._draw_ornate_panel(panel, self.PANEL_DARK, large=True)
         self._draw_title_scrollwork(panel)
+        self._draw_shield(cx, top - 96, scale=0.84)
 
         title = self.logo_font.render("KNIGHT RUNNER", True, self.TEXT_GOLD)
         title_rect = title.get_rect(center=(cx, panel.y + 76))
@@ -206,8 +207,6 @@ class MenuState:
         subtitle = self.logo_sub_font.render("Endless Fantasy", True, (234, 181, 146))
         subtitle_rect = subtitle.get_rect(center=(cx, panel.y + 128))
         self._draw_text_surface(subtitle, subtitle_rect, shadow=(60, 27, 26), outline=(45, 28, 28))
-
-        self._draw_shield(cx, top - 74)
 
     def _draw_button(self, rect, text, is_hovered):
         draw_rect = rect.move(0, -3 if is_hovered else 0)
@@ -267,11 +266,20 @@ class MenuState:
         for sign, anchor in ((1, left_anchor), (-1, right_anchor)):
             pygame.draw.line(self.screen, dark, (anchor, y + 6), (anchor + sign * 115, y + 6), 4)
             pygame.draw.line(self.screen, gold, (anchor, y + 4), (anchor + sign * 115, y + 4), 2)
-            for j in range(3):
-                arc_rect = pygame.Rect(anchor + sign * (22 + j * 34), y - 22 + j * 2, 44, 36)
-                if sign < 0:
-                    arc_rect.right = anchor - (22 + j * 34)
-                pygame.draw.arc(self.screen, gold, arc_rect, math.pi * 0.05, math.pi * 1.1, 3)
+            pygame.draw.line(
+                self.screen,
+                gold,
+                (anchor + sign * 26, y + 4),
+                (anchor + sign * 40, y - 9),
+                2,
+            )
+            pygame.draw.line(
+                self.screen,
+                gold,
+                (anchor + sign * 50, y + 4),
+                (anchor + sign * 62, y - 6),
+                2,
+            )
 
         self._draw_corner_scroll(rect.left + 33, rect.top + 36, 1, 1)
         self._draw_corner_scroll(rect.right - 33, rect.top + 36, -1, 1)
@@ -291,12 +299,7 @@ class MenuState:
             pygame.draw.line(self.screen, dark, (x, y), (x, y + sy * 13), 4)
             pygame.draw.line(self.screen, color, (x, y), (x + sx * 28, y), 2)
             pygame.draw.line(self.screen, color, (x, y), (x, y + sy * 13), 2)
-            arc = pygame.Rect(x + sx * 4, y + sy * 4, 28, 24)
-            if sx < 0:
-                arc.right = x - 4
-            if sy < 0:
-                arc.bottom = y - 4
-            pygame.draw.arc(self.screen, color, arc, 0, math.pi, 2)
+            pygame.draw.line(self.screen, color, (x + sx * 10, y + sy * 2), (x + sx * 18, y + sy * 10), 2)
 
     def _draw_corner_scroll(self, x, y, sx, sy):
         color = (224, 160, 88)
@@ -304,13 +307,8 @@ class MenuState:
         pygame.draw.line(self.screen, dark, (x, y), (x + sx * 65, y), 5)
         pygame.draw.line(self.screen, color, (x, y), (x + sx * 65, y), 2)
         pygame.draw.line(self.screen, color, (x, y), (x, y + sy * 30), 2)
-        for i in range(2):
-            arc = pygame.Rect(x + sx * (18 + i * 22), y + sy * (3 + i * 2), 32, 28)
-            if sx < 0:
-                arc.right = x - (18 + i * 22)
-            if sy < 0:
-                arc.bottom = y - (3 + i * 2)
-            pygame.draw.arc(self.screen, color, arc, 0, math.pi * 1.5, 2)
+        pygame.draw.line(self.screen, color, (x + sx * 16, y + sy * 2), (x + sx * 28, y + sy * 13), 2)
+        pygame.draw.line(self.screen, color, (x + sx * 35, y + sy * 2), (x + sx * 48, y + sy * 11), 2)
 
     def _draw_crossed_swords(self, cx, y):
         swords = [
@@ -328,28 +326,50 @@ class MenuState:
             pygame.draw.circle(self.screen, (113, 74, 48), (hx, hy), 7)
             pygame.draw.circle(self.screen, self.GOLD_LIGHT, (hx, hy), 3)
 
-    def _draw_shield(self, cx, y):
+    def _draw_shield(self, cx, y, scale=1.0):
+        def point(dx, dy):
+            return (cx + int(dx * scale), y + int(dy * scale))
+
+        shadow_offset = max(3, int(5 * scale))
         shield = [
-            (cx, y + 18),
-            (cx + 48, y + 40),
-            (cx + 42, y + 104),
-            (cx, y + 144),
-            (cx - 42, y + 104),
-            (cx - 48, y + 40),
+            point(0, 18),
+            point(48, 40),
+            point(42, 104),
+            point(0, 144),
+            point(-42, 104),
+            point(-48, 40),
         ]
-        pygame.draw.polygon(self.screen, (38, 28, 22), [(x + 5, yy + 5) for x, yy in shield])
+        pygame.draw.polygon(
+            self.screen,
+            (38, 28, 22),
+            [(x + shadow_offset, yy + shadow_offset) for x, yy in shield],
+        )
         pygame.draw.polygon(self.screen, (114, 79, 45), shield)
         pygame.draw.polygon(self.screen, (230, 169, 87), shield, 3)
 
-        left_face = [(cx, y + 24), (cx, y + 137), (cx - 35, y + 99), (cx - 40, y + 47)]
-        right_face = [(cx, y + 24), (cx + 40, y + 47), (cx + 35, y + 99), (cx, y + 137)]
+        left_face = [point(0, 24), point(0, 137), point(-35, 99), point(-40, 47)]
+        right_face = [point(0, 24), point(40, 47), point(35, 99), point(0, 137)]
         pygame.draw.polygon(self.screen, (156, 108, 58), left_face)
         pygame.draw.polygon(self.screen, (91, 64, 39), right_face)
-        pygame.draw.line(self.screen, (246, 196, 112), (cx, y + 25), (cx, y + 136), 2)
-        pygame.draw.arc(self.screen, (193, 137, 73), pygame.Rect(cx - 28, y + 46, 24, 24), 4.6, 6.2, 2)
-        pygame.draw.arc(self.screen, (193, 137, 73), pygame.Rect(cx + 4, y + 46, 24, 24), 3.1, 4.8, 2)
-        pygame.draw.line(self.screen, (82, 52, 34), (cx - 23, y + 92), (cx - 9, y + 106), 2)
-        pygame.draw.line(self.screen, (82, 52, 34), (cx + 23, y + 92), (cx + 9, y + 106), 2)
+        pygame.draw.line(self.screen, (246, 196, 112), point(0, 25), point(0, 136), 2)
+        pygame.draw.arc(
+            self.screen,
+            (193, 137, 73),
+            pygame.Rect(cx - int(28 * scale), y + int(46 * scale), max(1, int(24 * scale)), max(1, int(24 * scale))),
+            4.6,
+            6.2,
+            2,
+        )
+        pygame.draw.arc(
+            self.screen,
+            (193, 137, 73),
+            pygame.Rect(cx + int(4 * scale), y + int(46 * scale), max(1, int(24 * scale)), max(1, int(24 * scale))),
+            3.1,
+            4.8,
+            2,
+        )
+        pygame.draw.line(self.screen, (82, 52, 34), point(-23, 92), point(-9, 106), 2)
+        pygame.draw.line(self.screen, (82, 52, 34), point(23, 92), point(9, 106), 2)
 
     def _draw_text_surface(self, surface, rect, shadow=(47, 31, 30), outline=None):
         if outline:

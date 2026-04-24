@@ -6,9 +6,13 @@ import sys
 import pygame
 
 import settings
-from utils.asset_loader import load_font, load_sound, play_sound
+from utils.asset_loader import load_font, load_image, load_sound, play_sound
 from utils.music_manager import play_music
 from utils.score_manager import load_save_data, save_save_data
+
+GAMEOVER_TITLE_IMAGE = "gameover_ha_cut.png"
+GAMEOVER_TITLE_FALLBACK_IMAGE = "gameover_ha.png"
+GAMEOVER_TITLE_SCALE = 1.2
 
 
 class GameOverState:
@@ -50,6 +54,7 @@ class GameOverState:
         self.score_font = load_font(34, "georgia")
         self.hint_font = load_font(settings.GAMEOVER_HINT_SIZE)
         self.button_font = load_font(42, "georgia")
+        self.title_sprite = self._load_title_sprite()
 
         center_x = settings.SCREEN_WIDTH // 2
         center_y = settings.SCREEN_HEIGHT // 2
@@ -144,16 +149,14 @@ class GameOverState:
 
         center_x = settings.SCREEN_WIDTH // 2
 
-        title_text = self.title_font.render("GAME OVER", True, (232, 54, 50))
-        title_rect = title_text.get_rect(center=(center_x, settings.SCREEN_HEIGHT // 4))
-        self._draw_text_surface(title_text, title_rect, shadow=(72, 13, 15), outline=(28, 18, 18))
+        title_rect = self._draw_title(center_x)
 
         score_text = self.score_font.render(f"Score: {self.final_score}", True, self.TEXT_GOLD)
-        score_rect = score_text.get_rect(center=(center_x, title_rect.bottom + 50))
+        score_rect = score_text.get_rect(center=(center_x, title_rect.bottom + 16))
         self._draw_text_surface(score_text, score_rect, shadow=self.TEXT_SHADOW, outline=(45, 27, 22))
 
         high_text = self.score_font.render(f"Best: {self.highscore}", True, (238, 223, 196))
-        high_rect = high_text.get_rect(center=(center_x, score_rect.bottom + 38))
+        high_rect = high_text.get_rect(center=(center_x, score_rect.bottom + 32))
         self._draw_text_surface(high_text, high_rect, shadow=(39, 27, 22))
 
         if self.is_new_record and math.sin(self.frame_count * 0.1) > 0:
@@ -162,7 +165,7 @@ class GameOverState:
             self._draw_text_surface(record_text, record_rect, shadow=self.TEXT_SHADOW)
             
         money_text = self.score_font.render(f"+ {self.earned_money} Money", True, (255, 215, 0))
-        money_rect = money_text.get_rect(center=(center_x, high_rect.bottom + (60 if self.is_new_record else 30)))
+        money_rect = money_text.get_rect(center=(center_x, high_rect.bottom + (48 if self.is_new_record else 18)))
         self._draw_text_surface(money_text, money_rect, shadow=self.TEXT_SHADOW)
 
         retry_text = "REVIVE" if self.has_revive and self.previous_play_state else "PLAY AGAIN"
@@ -174,6 +177,53 @@ class GameOverState:
         hint_rect.centerx = center_x
         hint_rect.bottom = settings.SCREEN_HEIGHT - 20
         self._draw_text_surface(hint_text, hint_rect, shadow=(42, 29, 22))
+
+    def _draw_title(self, center_x):
+        if self.title_sprite:
+            title_rect = self.title_sprite.get_rect(center=(center_x, 152))
+            shadow = self.title_sprite.copy()
+            shadow.fill((90, 18, 18, 180), special_flags=pygame.BLEND_RGBA_MULT)
+            shadow.set_alpha(165)
+            self.screen.blit(shadow, title_rect.move(8, 9))
+            self.screen.blit(self.title_sprite, title_rect)
+            return title_rect
+
+        title_text = self.title_font.render("GAME OVER", True, (232, 54, 50))
+        scaled_title = pygame.transform.smoothscale(
+            title_text,
+            (
+                max(1, int(title_text.get_width() * GAMEOVER_TITLE_SCALE)),
+                max(1, int(title_text.get_height() * GAMEOVER_TITLE_SCALE)),
+            ),
+        )
+        title_rect = scaled_title.get_rect(center=(center_x, settings.SCREEN_HEIGHT // 4 + 10))
+        self._draw_text_surface(scaled_title, title_rect, shadow=(72, 13, 15), outline=(28, 18, 18))
+        return title_rect
+
+    def _load_title_sprite(self):
+        for filename in (GAMEOVER_TITLE_IMAGE, GAMEOVER_TITLE_FALLBACK_IMAGE):
+            try:
+                sprite = load_image(filename, convert_alpha=True).copy()
+                bounds = sprite.get_bounding_rect(min_alpha=8)
+                if bounds.width <= 0 or bounds.height <= 0:
+                    continue
+
+                sprite = sprite.subsurface(bounds).copy()
+                max_width = int(settings.SCREEN_WIDTH * 0.72)
+                max_height = int(settings.SCREEN_HEIGHT * 0.35)
+                scale = min(max_width / sprite.get_width(), max_height / sprite.get_height())
+                if scale <= 0:
+                    continue
+                scale *= GAMEOVER_TITLE_SCALE
+
+                size = (
+                    max(1, int(sprite.get_width() * scale)),
+                    max(1, int(sprite.get_height() * scale)),
+                )
+                return pygame.transform.smoothscale(sprite, size)
+            except Exception:
+                continue
+        return None
 
     def _draw_button(self, rect, text, is_hovered):
         draw_rect = rect.move(0, -3 if is_hovered else 0)

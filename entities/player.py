@@ -865,8 +865,18 @@ class Player:
 
         play_sound(self.death_sound, volume=0.55)
         self.death_sound_played = True
+
+    def _play_hurt_sound(self, sound=None, volume=None):
+        """Play a softer hurt sound when taking non-lethal damage."""
+        hurt_sound = sound if sound is not None else self.death_sound
+        if hurt_sound is None:
+            return
+        play_sound(
+            hurt_sound,
+            volume=settings.PLAYER_HURT_SOUND_VOLUME if volume is None else volume,
+        )
     
-    def take_damage(self, amount=1):
+    def take_damage(self, amount=1, hurt_sound=None, hurt_volume=None):
         """
         Nhận sát thương.
         Giảm HP và kích hoạt invincibility frames.
@@ -893,6 +903,8 @@ class Player:
             self._play_death_sound()
             return True  # Chết
         
+        self._play_hurt_sound(hurt_sound, hurt_volume)
+
         # Kích hoạt invincibility
         self.invincible_timer = settings.INVINCIBILITY_FRAMES
         return False
